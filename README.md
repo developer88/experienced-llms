@@ -55,20 +55,20 @@ Once a night (e.g., 02:00 AM), a scheduled cron/Task Scheduler task runs `experi
 
 ### Linux / macOS / WSL
 ```bash
-git clone https://github.com/andrey-eremin/experienced-llms.git
+git clone https://github.com/developer88/experienced-llms.git
 cd experienced-llms
 bash install.sh
 ```
 
 ### Windows (PowerShell)
 ```powershell
-git clone https://github.com/andrey-eremin/experienced-llms.git
+git clone https://github.com/developer88/experienced-llms.git
 cd experienced-llms
 .\install.ps1
 ```
 
 The installer automatically:
-1. Initializes `~/.experienced-llms/` storage and SQLite database.
+1. Initializes `~/.experienced-llms/` storage and the SQLite database.
 2. Installs the executable `experienced-llms` command.
 3. Automatically installs agent instructions across all detected AI environments:
    - **Antigravity**: `~/.gemini/config/skills/experienced-llms/SKILL.md`
@@ -76,7 +76,26 @@ The installer automatically:
    - **GitHub Copilot**: `.github/copilot-instructions.md`
    - **Pi & Open Agent Standard**: `AGENTS.md`
    - **Cursor**: `.cursorrules`
-4. Registers the nightly consolidation schedule (via user crontab or Windows Task Scheduler).
+4. Registers the consolidation schedule (Windows Task Scheduler or user crontab).
+
+---
+
+## Multi-Platform & Hybrid (Windows + WSL) Architecture
+
+Experienced LLMs is built to adapt seamlessly to your developer workflow regardless of OS or environment:
+
+| Setup | Agent Environment | CLI & Engine Execution | Storage & Scheduler |
+| :--- | :--- | :--- | :--- |
+| **Pure Linux / macOS** | Linux / macOS terminal | Native Python 3 (`~/.local/bin`) | Native `~/.experienced-llms` + user `crontab` |
+| **Pure Windows** | Windows terminal / IDEs | Native Windows Python (`%USERPROFILE%`) | `%USERPROFILE%\.experienced-llms` + Windows Task Scheduler |
+| **Hybrid (Windows + WSL)** | Windows `agy.exe`, VS Code | Auto-bridged `.cmd` shim to WSL | Windows symlink to WSL storage + Windows Task Scheduler with on-boot trigger |
+
+### How the Windows + WSL Hybrid Bridge Works
+If you run agents on Windows (such as `agy.exe` or Antigravity IDE) while Python resides inside WSL:
+1. **Shared Storage**: Windows `%USERPROFILE%\.experienced-llms` is linked directly to your WSL home (`\\wsl.localhost\Ubuntu\home\<user>\.experienced-llms`).
+2. **Transparent Command Execution**: A Windows CLI shim (`experienced-llms.cmd`) automatically passes commands into WSL (`wsl.exe -d Ubuntu -- bash -lc "experienced-llms %*"`).
+3. **Dual Agent Skill Registration**: The skill is installed in both Windows (`%USERPROFILE%\.gemini\...`) and WSL (`~/.gemini\...`), so both Windows and WSL agents operate on the **exact same live memory**.
+4. **PC Turn-On / Boot Resiliency**: In addition to the 02:00 AM Task Scheduler task, a background startup trigger (`ExperiencedLLMsConsolidateOnBoot.cmd`) runs in Windows Startup so consolidation always executes when you power on your PC.
 
 ---
 
@@ -122,11 +141,16 @@ experienced-llms consolidate
 
 ### 6. Manage Scheduled Daemon
 ```bash
-# Check schedule
+# Check active schedules (Windows Task Scheduler, Crontab)
 experienced-llms schedule --status
 
-# Install or change execution time (e.g. 03:00 AM)
-experienced-llms schedule --install --time "03:00"
+# Install with auto-detection (default: 02:00 AM)
+experienced-llms schedule --install --time "02:00"
+
+# Explicitly choose your preferred scheduler type:
+experienced-llms schedule --install --type auto       # Best for current OS
+experienced-llms schedule --install --type cron       # Linux/macOS/WSL crontab
+experienced-llms schedule --install --type schtasks   # Windows Task Scheduler
 
 # Uninstall schedule
 experienced-llms schedule --uninstall
