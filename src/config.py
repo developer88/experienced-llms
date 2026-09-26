@@ -81,11 +81,32 @@ def save_config(cfg: Dict[str, Any]):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
 
+STARTER_EXPERIENCE_TEMPLATE = """# Master AI Experience
+
+## 1. User Directives & Preferences
+- (None recorded yet)
+
+## 2. Defensive Safeguards & Heuristics
+- (None recorded yet)
+
+## 3. Project-Specific Constraints
+- (None recorded yet)
+
+## 4. Anti-Patterns & Critical Gotchas
+- (None recorded yet)
+"""
+
 def ensure_directories():
-    """Ensure that all required directory trees exist."""
+    """Ensure that all required directory trees exist and starter experience file is initialized."""
     EXPERIENCED_HOME.mkdir(parents=True, exist_ok=True)
     RAW_DAYS_DIR.mkdir(parents=True, exist_ok=True)
     SKILLS_DIR.mkdir(parents=True, exist_ok=True)
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     DAILY_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not MASTER_EXPERIENCE_FILE.exists():
+        try:
+            with open(MASTER_EXPERIENCE_FILE, "w", encoding="utf-8") as f:
+                f.write(STARTER_EXPERIENCE_TEMPLATE)
+        except Exception:
+            pass
