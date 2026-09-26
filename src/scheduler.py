@@ -14,10 +14,10 @@ TASK_NAME = "ExperiencedLLMsConsolidator"
 def get_python_executable() -> str:
     return sys.executable
 
-def install_schedule(time_str: str = "02:00") -> Tuple[bool, str]:
+def install_schedule(time_str: str = "02:00", scheduler_type: str = "auto") -> Tuple[bool, str]:
     """
     Installs a scheduled job to run `experienced-llms consolidate` daily at `time_str`.
-    Uses crontab on Linux/macOS/WSL, and schtasks on native Windows.
+    Supports standard crontab (Linux/macOS/WSL) and Windows Task Scheduler (Windows/WSL).
     """
     python_bin = get_python_executable()
     cli_path = config.BASE_DIR / "src" / "cli.py"
@@ -32,10 +32,11 @@ def install_schedule(time_str: str = "02:00") -> Tuple[bool, str]:
     except Exception:
         hour, minute = 2, 0
 
-    if sys.platform.startswith("win32"):
-        # Windows Task Scheduler
+    st_val = f"{hour:02d}:{minute:02d}"
+
+    # 1. Native Windows schtasks
+    if sys.platform.startswith("win32") and scheduler_type in ("auto", "schtasks"):
         cmd_str = f'"{python_bin}" "{cli_path}" consolidate'
-        st_val = f"{hour:02d}:{minute:02d}"
         schtasks_cmd = [
             "schtasks", "/create",
             "/tn", TASK_NAME,
@@ -52,106 +53,101 @@ def install_schedule(time_str: str = "02:00") -> Tuple[bool, str]:
         except Exception as e:
             return False, f"Windows Task Scheduler error: {e}"
 
-    else:
-        # If in WSL and schtasks.exe is available, prefer Windows Task Scheduler so consolidation runs reliably
-        if shutil.which("schtasks.exe"):
-            st_val = f"{hour:02d}:{minute:02d}"
-            wsl_cmd = 'wsl.exe -d Ubuntu -- bash -lc "experienced-llms consolidate"'
-            schtasks_cmd = [
-                "schtasks.exe", "/create",
-                "/tn", TASK_NAME,
-                "/tr", wsl_cmd,
-                "/sc", "daily",
-                "/st", st_val,
-                "/f"
-            ]
-            try:
-                res = subprocess.run(schtasks_cmd, capture_output=True, text=True)
-                if res.returncode == 0:
-                    return True, f"Windows Scheduled Task '{TASK_NAME}' registered daily at {st_val}."
-            except Exception:
-                pass
-
-        # Linux / WSL fallback crontab
-        cron_comment = "# Experienced-LLMs Nightly Consolidation"
-        cron_line = f"{minute} {hour} * * * cd {config.BASE_DIR} && {python_bin} -m src.cli consolidate >> {log_file} 2>&1 {cron_comment}"
-
+    # 2. WSL with Windows Task Scheduler preference
+    if scheduler_type == "schtasks" or (scheduler_type == "auto" and shutil.which("schtasks.exe")):
+        wsl_cmd = 'wsl.exe -d Ubuntu -- bash -lc "experienced-llms consolidate"'
+        schtasks_cmd = [
+            "schtasks.exe", "/create",
+            "/tn", TASK_NAME,
+            "/tr", wsl_cmd,
+            "/sc", "daily",
+            "/st", st_val,
+            "/f"
+        ]
         try:
-            # Read existing crontab
-            read_proc = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-            existing_lines = read_proc.stdout.splitlines() if read_proc.returncode == 0 else []
-
-            # Filter out existing experienced-llms lines
-            new_lines = [l for l in existing_lines if cron_comment not in l and "src.cli consolidate" not in l]
-            new_lines.append(cron_line)
-
-            # Write updated crontab
-            write_proc = subprocess.run(
-                ["crontab", "-"],
-                input="\n".join(new_lines) + "\n",
-                text=True,
-                capture_output=True
-            )
-            if write_proc.returncode == 0:
-                return True, f"Crontab entry installed daily at {hour:02d}:{minute:02d}."
-            return False, f"Failed to update crontab: {write_proc.stderr.strip()}"
-        except Exception as e:
-            return False, f"Crontab error: {e}"
-
-def uninstall_schedule() -> Tuple[bool, str]:
-    """Removes the scheduled job."""
-    if sys.platform.startswith("win32"):
-        try:
-            res = subprocess.run(["schtasks", "/delete", "/tn", TASK_NAME, "/f"], capture_output=True, text=True)
+            res = subprocess.run(schtasks_cmd, capture_output=True, text=True)
             if res.returncode == 0:
-                return True, f"Task '{TASK_NAME}' deleted from Windows Task Scheduler."
-            return False, f"Task '{TASK_NAME}' not found or deletion failed."
-        except Exception as e:
-            return False, f"Windows Task Scheduler error: {e}"
-    else:
-        # Also clean up Windows Task Scheduler if in WSL
-        if shutil.which("schtasks.exe"):
+                return True, f"Windows Scheduled Task '{TASK_NAME}' registered daily at {st_val}."
+        except Exception:
+            pass
+
+    # 3. Standard Linux / macOS / Unix crontab
+    cron_comment = "# Experienced-LLMs Nightly Consolidation"
+    cron_line = f"{minute} {hour} * * * cd {config.BASE_DIR} && {python_bin} -m src.cli consolidate >> {log_file} 2>&1 {cron_comment}"
+
+    try:
+        read_proc = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        existing_lines = read_proc.stdout.splitlines() if read_proc.returncode == 0 else []
+
+        new_lines = [l for l in existing_lines if cron_comment not in l and "src.cli consolidate" not in l]
+        new_lines.append(cron_line)
+
+        write_proc = subprocess.run(
+            ["crontab", "-"],
+            input="\n".join(new_lines) + "\n",
+            text=True,
+            capture_output=True
+        )
+        if write_proc.returncode == 0:
+            return True, f"Crontab entry installed daily at {hour:02d}:{minute:02d}."
+        return False, f"Failed to update crontab: {write_proc.stderr.strip()}"
+    except Exception as e:
+        return False, f"Crontab error: {e}"
+
+def uninstall_schedule(scheduler_type: str = "auto") -> Tuple[bool, str]:
+    """Removes the scheduled job across Windows Task Scheduler and/or Crontab."""
+    messages = []
+    
+    # Clean up Windows Task Scheduler if applicable
+    if sys.platform.startswith("win32") or shutil.which("schtasks.exe"):
+        bin_name = "schtasks" if sys.platform.startswith("win32") else "schtasks.exe"
+        if scheduler_type in ("auto", "schtasks"):
             try:
-                subprocess.run(["schtasks.exe", "/delete", "/tn", TASK_NAME, "/f"], capture_output=True, text=True)
+                res = subprocess.run([bin_name, "/delete", "/tn", TASK_NAME, "/f"], capture_output=True, text=True)
+                if res.returncode == 0:
+                    messages.append(f"Task '{TASK_NAME}' deleted from Windows Task Scheduler.")
             except Exception:
                 pass
 
+    # Clean up Crontab if applicable
+    if scheduler_type in ("auto", "cron"):
         cron_comment = "# Experienced-LLMs Nightly Consolidation"
         try:
             read_proc = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-            if read_proc.returncode != 0:
-                return True, "No crontab currently configured."
-            lines = [l for l in read_proc.stdout.splitlines() if cron_comment not in l and "src.cli consolidate" not in l]
-            subprocess.run(["crontab", "-"], input="\n".join(lines) + "\n", text=True, capture_output=True)
-            return True, "Removed Experienced-LLMs entry from crontab."
-        except Exception as e:
-            return False, f"Crontab uninstall error: {e}"
+            if read_proc.returncode == 0 and "src.cli consolidate" in read_proc.stdout:
+                lines = [l for l in read_proc.stdout.splitlines() if cron_comment not in l and "src.cli consolidate" not in l]
+                subprocess.run(["crontab", "-"], input="\n".join(lines) + "\n", text=True, capture_output=True)
+                messages.append("Removed entry from crontab.")
+        except Exception:
+            pass
+
+    if messages:
+        return True, " ".join(messages)
+    return True, "No active schedule found to remove."
 
 def get_schedule_status() -> str:
-    """Checks whether the schedule is active."""
-    if sys.platform.startswith("win32"):
-        try:
-            res = subprocess.run(["schtasks", "/query", "/tn", TASK_NAME], capture_output=True, text=True)
-            if res.returncode == 0:
-                return f"ACTIVE (Windows Task Scheduler: '{TASK_NAME}')"
-            return "NOT CONFIGURED"
-        except Exception:
-            return "UNKNOWN (schtasks query error)"
-    else:
-        # In WSL, check Windows Task Scheduler first
-        if shutil.which("schtasks.exe"):
-            try:
-                res = subprocess.run(["schtasks.exe", "/query", "/tn", TASK_NAME], capture_output=True, text=True)
-                if res.returncode == 0:
-                    return f"ACTIVE (Windows Task Scheduler: '{TASK_NAME}')"
-            except Exception:
-                pass
+    """Checks and reports all active schedules (Windows Task Scheduler, Crontab)."""
+    statuses = []
 
+    # Check Windows Task Scheduler
+    bin_name = "schtasks" if sys.platform.startswith("win32") else "schtasks.exe"
+    if sys.platform.startswith("win32") or shutil.which("schtasks.exe"):
         try:
-            res = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
-            if res.returncode == 0 and "src.cli consolidate" in res.stdout:
-                matching = [l for l in res.stdout.splitlines() if "src.cli consolidate" in l]
-                return f"ACTIVE in crontab:\n  {matching[0]}"
-            return "NOT CONFIGURED"
+            res = subprocess.run([bin_name, "/query", "/tn", TASK_NAME], capture_output=True, text=True)
+            if res.returncode == 0:
+                statuses.append(f"ACTIVE (Windows Task Scheduler: '{TASK_NAME}')")
         except Exception:
-            return "UNKNOWN (crontab unavailable)"
+            pass
+
+    # Check Crontab
+    try:
+        res = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        if res.returncode == 0 and "src.cli consolidate" in res.stdout:
+            matching = [l for l in res.stdout.splitlines() if "src.cli consolidate" in l]
+            statuses.append(f"ACTIVE (Crontab: '{matching[0].strip()}')")
+    except Exception:
+        pass
+
+    if statuses:
+        return "\n  ".join(statuses)
+    return "NOT CONFIGURED"

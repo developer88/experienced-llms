@@ -47,6 +47,8 @@ def main():
     sched_parser.add_argument("--uninstall", action="store_true", help="Uninstall the scheduled job")
     sched_parser.add_argument("--status", action="store_true", help="Check schedule status")
     sched_parser.add_argument("--time", type=str, default="02:00", help="Daily execution time in HH:MM format (default: 02:00)")
+    sched_parser.add_argument("--type", type=str, default="auto", choices=["auto", "cron", "schtasks"],
+                              help="Scheduler type: 'auto' (detects OS best), 'cron' (Linux/macOS/WSL crontab), or 'schtasks' (Windows Task Scheduler)")
 
     # 5. setup (configuration wizard)
     setup_parser = subparsers.add_parser("setup", help="Configure LLM providers and paths")
@@ -117,10 +119,10 @@ def main():
 
     elif args.command == "schedule":
         if args.install:
-            ok, msg = install_schedule(args.time)
+            ok, msg = install_schedule(args.time, args.type)
             print(msg)
         elif args.uninstall:
-            ok, msg = uninstall_schedule()
+            ok, msg = uninstall_schedule(args.type)
             print(msg)
         else:
             print("Scheduler Status:")
