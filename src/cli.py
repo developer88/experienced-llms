@@ -59,6 +59,11 @@ def main():
     prompt_parser.add_argument("--skill", type=str, default=None, help="Specific skill key for worker prompt")
     prompt_parser.add_argument("--scope", type=str, default=None, help="Scope/project filter")
 
+    # 8. integrate (install instructions for Antigravity, Claude, Copilot, Cursor, Pi)
+    integ_parser = subparsers.add_parser("integrate", help="Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi)")
+    integ_parser.add_argument("--target", "-t", type=str, default="all", choices=["antigravity", "claude", "copilot", "cursor", "pi", "all"])
+    integ_parser.add_argument("--workspace", "-w", type=str, default=None, help="Target workspace path (defaults to current directory)")
+
     # Legacy subcommands (init, extract, compile-skills, show-context)
     subparsers.add_parser("init", help="Initialize SQLite schema and directories")
     ext_parser = subparsers.add_parser("extract", help="Extract facts from a session transcript file")
@@ -172,6 +177,32 @@ def main():
             print(build_worker_prompt(active_skill_key=args.skill))
         else:
             print(build_orchestrator_prompt(scope=args.scope))
+
+    elif args.command == "integrate":
+        from src.agent_integrations import (
+            install_antigravity, install_claude, install_copilot,
+            install_cursor, install_pi_generic, auto_detect_and_install_all
+        )
+        ws_path = Path(args.workspace) if args.workspace else None
+        if args.target == "antigravity":
+            ok, msg = install_antigravity()
+            print(f"[+] {msg}")
+        elif args.target == "claude":
+            ok, msg = install_claude(ws_path)
+            print(f"[+] {msg}")
+        elif args.target == "copilot":
+            ok, msg = install_copilot(ws_path)
+            print(f"[+] {msg}")
+        elif args.target == "cursor":
+            ok, msg = install_cursor(ws_path)
+            print(f"[+] {msg}")
+        elif args.target == "pi":
+            ok, msg = install_pi_generic(ws_path)
+            print(f"[+] {msg}")
+        else:
+            results = auto_detect_and_install_all(ws_path)
+            for r in results:
+                print(r)
 
     elif args.command == "extract":
         text = ""

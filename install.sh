@@ -41,13 +41,10 @@ if [[ ":$PATH:" != *":${BIN_DIR}:"* ]]; then
     echo "    export PATH=\"${BIN_DIR}:\$PATH\""
 fi
 
-# 4. Install Agent Skill for Antigravity (if detected)
-if [ -d "${HOME}/.gemini" ]; then
-    echo "[+] Antigravity agent detected! Installing agent skill..."
-    mkdir -p "${SKILL_DIR}"
-    cp "${SCRIPT_DIR}/skill/SKILL.md" "${SKILL_DIR}/SKILL.md"
-    echo "[+] Skill installed to: ${SKILL_DIR}/SKILL.md"
-fi
+# 4. Integrate with AI Agents (Antigravity, Claude, Copilot, Cursor, Pi)
+echo "[+] Configuring AI Agent integrations..."
+export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH}"
+python3 -m src.cli integrate --target all
 
 # 5. Setup Nightly Consolidation Cron (Default: 02:00 AM)
 echo "[+] Installing nightly consolidation schedule..."

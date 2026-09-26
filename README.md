@@ -70,7 +70,12 @@ cd experienced-llms
 The installer automatically:
 1. Initializes `~/.experienced-llms/` storage and SQLite database.
 2. Installs the executable `experienced-llms` command.
-3. Automatically installs the agent skill into Antigravity (`~/.gemini/config/skills/experienced-llms/SKILL.md`).
+3. Automatically installs agent instructions across all detected AI environments:
+   - **Antigravity**: `~/.gemini/config/skills/experienced-llms/SKILL.md`
+   - **Claude (Claude Code / Desktop)**: `~/.claude/CLAUDE.md`
+   - **GitHub Copilot**: `.github/copilot-instructions.md`
+   - **Pi & Open Agent Standard**: `AGENTS.md`
+   - **Cursor**: `.cursorrules`
 4. Registers the nightly consolidation schedule (via user crontab or Windows Task Scheduler).
 
 ---
@@ -125,6 +130,20 @@ experienced-llms schedule --install --time "03:00"
 
 # Uninstall schedule
 experienced-llms schedule --uninstall
+```
+
+### 7. Integrate with Specific AI Agents
+Install or refresh custom instructions in your active tools:
+```bash
+# Auto-detect and configure all installed tools
+experienced-llms integrate --target all
+
+# Or target specific tools
+experienced-llms integrate --target antigravity
+experienced-llms integrate --target claude
+experienced-llms integrate --target copilot
+experienced-llms integrate --target cursor
+experienced-llms integrate --target pi
 ```
 
 ---

@@ -290,5 +290,38 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
         self.assertEqual(loaded["provider"], "claude")
         self.assertEqual(loaded["claude_model"], "claude-3-5-sonnet-latest")
 
+    def test_agent_integrations(self):
+        from src.agent_integrations import (
+            install_antigravity, install_claude, install_copilot,
+            install_cursor, install_pi_generic
+        )
+        ws = self.test_path / "workspace"
+        ws.mkdir(parents=True, exist_ok=True)
+
+        # Antigravity
+        ok, msg = install_antigravity(self.test_path / "antigravity_skill")
+        self.assertTrue(ok)
+        self.assertTrue((self.test_path / "antigravity_skill" / "SKILL.md").exists())
+
+        # Claude
+        ok, msg = install_claude(ws)
+        self.assertTrue(ok)
+        self.assertTrue((ws / "CLAUDE.md").exists())
+
+        # Copilot
+        ok, msg = install_copilot(ws)
+        self.assertTrue(ok)
+        self.assertTrue((ws / ".github" / "copilot-instructions.md").exists())
+
+        # Cursor
+        ok, msg = install_cursor(ws)
+        self.assertTrue(ok)
+        self.assertTrue((ws / ".cursorrules").exists())
+
+        # Pi / Generic AGENTS.md
+        ok, msg = install_pi_generic(ws)
+        self.assertTrue(ok)
+        self.assertTrue((ws / "AGENTS.md").exists())
+
 if __name__ == "__main__":
     unittest.main()
