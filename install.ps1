@@ -33,6 +33,26 @@ if ($hasWindowsPython) {
         # Convert path to WSL mount path
         $wslPath = "/mnt/" + $ScriptDir.Substring(0,1).ToLower() + $ScriptDir.Substring(2).Replace("\", "/")
         wsl -e bash -c "cd '$wslPath' && bash install.sh"
+
+        # Link ~/.experienced-llms in Windows to WSL storage
+        if (-not (Test-Path $ExperiencedHome)) {
+            try {
+                New-Item -ItemType SymbolicLink -Path $ExperiencedHome -Target "\\wsl.localhost\Ubuntu\home\$env:USERNAME\.experienced-llms" -ErrorAction SilentlyContinue | Out-Null
+            } catch {}
+        }
+
+        # Install Windows CLI shim to an existing PATH folder
+        $candidatePaths = @(
+            (Join-Path $env:LOCALAPPDATA "agy\bin"),
+            (Join-Path $HOME ".gemini\antigravity\bin"),
+            (Join-Path $env:APPDATA "npm")
+        )
+        foreach ($binFolder in $candidatePaths) {
+            if (Test-Path $binFolder) {
+                Set-Content -Path (Join-Path $binFolder "experienced-llms.cmd") -Value "@wsl -e bash -c 'experienced-llms %*'" -Encoding ASCII
+                break
+            }
+        }
     } else {
         Write-Host "[-] Warning: Neither Windows Python 3 nor WSL was detected." -ForegroundColor Red
     }
