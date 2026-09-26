@@ -53,7 +53,26 @@ def install_schedule(time_str: str = "02:00") -> Tuple[bool, str]:
             return False, f"Windows Task Scheduler error: {e}"
 
     else:
-        # Linux / WSL / macOS crontab
+        # If in WSL and schtasks.exe is available, prefer Windows Task Scheduler so consolidation runs reliably
+        if shutil.which("schtasks.exe"):
+            st_val = f"{hour:02d}:{minute:02d}"
+            wsl_cmd = 'wsl.exe -d Ubuntu -- bash -lc "experienced-llms consolidate"'
+            schtasks_cmd = [
+                "schtasks.exe", "/create",
+                "/tn", TASK_NAME,
+                "/tr", wsl_cmd,
+                "/sc", "daily",
+                "/st", st_val,
+                "/f"
+            ]
+            try:
+                res = subprocess.run(schtasks_cmd, capture_output=True, text=True)
+                if res.returncode == 0:
+                    return True, f"Windows Scheduled Task '{TASK_NAME}' registered daily at {st_val}."
+            except Exception:
+                pass
+
+        # Linux / WSL fallback crontab
         cron_comment = "# Experienced-LLMs Nightly Consolidation"
         cron_line = f"{minute} {hour} * * * cd {config.BASE_DIR} && {python_bin} -m src.cli consolidate >> {log_file} 2>&1 {cron_comment}"
 
@@ -90,6 +109,13 @@ def uninstall_schedule() -> Tuple[bool, str]:
         except Exception as e:
             return False, f"Windows Task Scheduler error: {e}"
     else:
+        # Also clean up Windows Task Scheduler if in WSL
+        if shutil.which("schtasks.exe"):
+            try:
+                subprocess.run(["schtasks.exe", "/delete", "/tn", TASK_NAME, "/f"], capture_output=True, text=True)
+            except Exception:
+                pass
+
         cron_comment = "# Experienced-LLMs Nightly Consolidation"
         try:
             read_proc = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
@@ -112,6 +138,15 @@ def get_schedule_status() -> str:
         except Exception:
             return "UNKNOWN (schtasks query error)"
     else:
+        # In WSL, check Windows Task Scheduler first
+        if shutil.which("schtasks.exe"):
+            try:
+                res = subprocess.run(["schtasks.exe", "/query", "/tn", TASK_NAME], capture_output=True, text=True)
+                if res.returncode == 0:
+                    return f"ACTIVE (Windows Task Scheduler: '{TASK_NAME}')"
+            except Exception:
+                pass
+
         try:
             res = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
             if res.returncode == 0 and "src.cli consolidate" in res.stdout:

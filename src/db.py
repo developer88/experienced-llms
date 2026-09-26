@@ -150,10 +150,11 @@ def get_facts_by_date(date_str: str, conn: Optional[sqlite3.Connection] = None) 
         rows = conn.execute(
             """
             SELECT * FROM memory_facts
-            WHERE strftime('%Y-%m-%d', created_at) = ?
+            WHERE strftime('%Y-%m-%d', created_at, 'localtime') = ?
+               OR strftime('%Y-%m-%d', created_at) = ?
             ORDER BY id ASC
             """,
-            (date_str,)
+            (date_str, date_str)
         ).fetchall()
         return [_row_to_fact(row) for row in rows]
     finally:
