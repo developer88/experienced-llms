@@ -23,7 +23,7 @@ def main():
     log_parser = subparsers.add_parser("log", help="Log an intraday rule or correction (zero tokens, instant, offline)")
     log_parser.add_argument("statement", type=str, help="Concise operational rule statement")
     log_parser.add_argument("--category", "-c", type=str, default="user_preference",
-                            choices=["user_preference", "technical_decision", "mistake_correction", "project_gotcha"],
+                            choices=["defensive_heuristic", "user_preference", "technical_decision", "mistake_correction", "project_gotcha"],
                             help="Classification of the rule")
     log_parser.add_argument("--scope", "-s", type=str, default="global", help="Scope / repository tag")
     log_parser.add_argument("--reason", "-r", type=str, default="", help="Context or reason behind this rule")

@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS memory_facts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
-    category TEXT NOT NULL CHECK(category IN ('user_preference', 'technical_decision', 'mistake_correction', 'project_gotcha')),
+    category TEXT NOT NULL CHECK(category IN ('defensive_heuristic', 'user_preference', 'technical_decision', 'mistake_correction', 'project_gotcha')),
     scope TEXT DEFAULT 'global',
     rule_statement TEXT NOT NULL,
     context_reason TEXT,

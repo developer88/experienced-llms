@@ -12,12 +12,40 @@ def get_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
+def _check_and_migrate(conn: sqlite3.Connection):
+    row = conn.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='memory_facts'").fetchone()
+    if row and row["sql"] and "defensive_heuristic" not in row["sql"]:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.execute("""
+            CREATE TABLE memory_facts_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+                category TEXT NOT NULL CHECK(category IN ('defensive_heuristic', 'user_preference', 'technical_decision', 'mistake_correction', 'project_gotcha')),
+                scope TEXT DEFAULT 'global',
+                rule_statement TEXT NOT NULL,
+                context_reason TEXT,
+                confidence REAL DEFAULT 1.0,
+                status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'superseded', 'user_verified', 'archived')),
+                superseded_by INTEGER REFERENCES memory_facts(id) ON DELETE SET NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("INSERT INTO memory_facts_new SELECT * FROM memory_facts")
+        conn.execute("DROP TABLE memory_facts")
+        conn.execute("ALTER TABLE memory_facts_new RENAME TO memory_facts")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_facts_scope_status ON memory_facts(scope, status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_facts_category ON memory_facts(category)")
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
+
 def init_db(db_path: Optional[Path] = None):
     config.ensure_directories()
     conn = get_connection(db_path)
     schema_path = config.BASE_DIR / "schema.sql"
     with open(schema_path, "r", encoding="utf-8") as f:
         conn.executescript(f.read())
+    _check_and_migrate(conn)
     conn.commit()
     conn.close()
 

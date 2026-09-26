@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Optional, List
 
 class FactCategory(str, Enum):
+    DEFENSIVE_HEURISTIC = "defensive_heuristic"
     USER_PREFERENCE = "user_preference"
     TECHNICAL_DECISION = "technical_decision"
     MISTAKE_CORRECTION = "mistake_correction"
