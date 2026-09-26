@@ -83,13 +83,15 @@ class InterdayConsolidator:
 {facts_summary}
 """
 
-        raw_response = self.llm_client.generate(
-            system_prompt=INTERDAY_CONSOLIDATION_PROMPT,
-            user_prompt=user_prompt,
-            json_mode=True
-        )
-
-        updated_md, summary, superseded = self._parse_consolidation_response(raw_response, master_content)
+        try:
+            raw_response = self.llm_client.generate(
+                system_prompt=INTERDAY_CONSOLIDATION_PROMPT,
+                user_prompt=user_prompt,
+                json_mode=True
+            )
+            updated_md, summary, superseded = self._parse_consolidation_response(raw_response, master_content)
+        except Exception as e:
+            updated_md, summary, superseded = self._deterministic_fallback_consolidation(facts, str(e))
 
         # 4. Write updated EXPERIENCE.md
         with open(config.MASTER_EXPERIENCE_FILE, "w", encoding="utf-8") as f:
@@ -135,3 +137,43 @@ class InterdayConsolidator:
         except Exception:
             # Fallback if invalid JSON was returned
             return fallback_md, "Consolidation finished with fallback.", []
+
+    def _deterministic_fallback_consolidation(self, facts: List[MemoryFact], error_reason: str) -> Tuple[str, str, List[dict]]:
+        """Deduplicates facts and compiles a structured EXPERIENCE.md without an external LLM."""
+        lines = [
+            "# Master AI Experience",
+            f"<!-- Consolidated: {datetime.now().strftime('%Y-%m-%d %H:%M')} (Deterministic fallback) -->\n"
+        ]
+
+        # Group facts by category, deduplicating identical statements
+        categories = [
+            (FactCategory.USER_PREFERENCE, "## 1. User Directives & Preferences"),
+            (FactCategory.DEFENSIVE_HEURISTIC, "## 2. Defensive Safeguards & Heuristics"),
+            (FactCategory.TECHNICAL_DECISION, "## 3. Project-Specific Constraints"),
+            (FactCategory.PROJECT_GOTCHA, "## 4. Anti-Patterns & Critical Gotchas"),
+            (FactCategory.MISTAKE_CORRECTION, "## 5. Mistake Corrections & Fixes"),
+        ]
+
+        seen_rules = set()
+        total_unique = 0
+
+        for cat_enum, header in categories:
+            matching = [f for f in facts if f.category == cat_enum]
+            lines.append(header)
+            cat_has_entries = False
+            for f in matching:
+                rule_clean = f.rule_statement.strip()
+                if rule_clean.lower() not in seen_rules:
+                    seen_rules.add(rule_clean.lower())
+                    cat_has_entries = True
+                    total_unique += 1
+                    line = f"- ({f.scope}): {rule_clean}"
+                    if f.context_reason:
+                        line += f" *(Reason: {f.context_reason})*"
+                    lines.append(line)
+            if not cat_has_entries:
+                lines.append("- *(None recorded yet)*")
+            lines.append("")
+
+        summary = f"Consolidated {total_unique} unique facts deterministically (LLM note: {error_reason[:75]}...)"
+        return "\n".join(lines), summary, []
