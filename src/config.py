@@ -8,8 +8,10 @@ from typing import Dict, Any
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 def resolve_path(p: str | Path) -> Path:
-    """Resolve Windows path to WSL path if running inside Linux."""
+    """Resolve Windows path to WSL path if running inside Linux, and expand user home."""
     p_str = str(p)
+    if p_str.startswith("~"):
+        p_str = str(Path(p_str).expanduser())
     if sys.platform.startswith("linux") and re.match(r"^[a-zA-Z]:[/\\]", p_str):
         drive = p_str[0].lower()
         rest = p_str[2:].replace("\\", "/")

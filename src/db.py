@@ -7,9 +7,14 @@ from src.models import MemoryFact, FactCategory, FactStatus, Skill
 def get_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
     target = db_path or config.DB_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(target))
+    conn = sqlite3.connect(str(target), timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+    except sqlite3.OperationalError:
+        pass
     return conn
 
 def _check_and_migrate(conn: sqlite3.Connection):

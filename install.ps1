@@ -38,28 +38,24 @@ if ($hasWindowsPython) {
     }
 }
 
-# 2. Configure Agent Integrations (Antigravity, Claude, Copilot, Pi)
-Write-Host "[+] Configuring AI Agent integrations in Windows profile..." -ForegroundColor Green
-
-# Antigravity
-$GeminiDir = Join-Path $HOME ".gemini"
-if (Test-Path $GeminiDir) {
-    if (-not (Test-Path $SkillDir)) {
-        New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
+# 2. Configure Agent Integrations (Antigravity, Claude, Copilot, Cursor, Pi)
+Write-Host "[+] Configuring AI Agent integrations..." -ForegroundColor Green
+if ($hasWindowsPython) {
+    & python (Join-Path $ScriptDir "src\cli.py") integrate --target all
+} else {
+    # Antigravity fallback
+    $GeminiDir = Join-Path $HOME ".gemini"
+    if (Test-Path $GeminiDir) {
+        if (-not (Test-Path $SkillDir)) {
+            New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
+        }
+        Copy-Item -Path (Join-Path $ScriptDir "skill\SKILL.md") -Destination (Join-Path $SkillDir "SKILL.md") -Force
+        Write-Host "[+] Antigravity skill installed: $SkillDir\SKILL.md" -ForegroundColor Green
     }
-    Copy-Item -Path (Join-Path $ScriptDir "skill\SKILL.md") -Destination (Join-Path $SkillDir "SKILL.md") -Force
-    Write-Host "[+] Antigravity skill installed: $SkillDir\SKILL.md" -ForegroundColor Green
 }
-
-# Claude
-$ClaudeDir = Join-Path $HOME ".claude"
-if (-not (Test-Path $ClaudeDir)) {
-    New-Item -ItemType Directory -Path $ClaudeDir -Force | Out-Null
-}
-Copy-Item -Path (Join-Path $ScriptDir "skill\SKILL.md") -Destination (Join-Path $ClaudeDir "CLAUDE.md") -Force
-Write-Host "[+] Claude global instructions installed: $ClaudeDir\CLAUDE.md" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "=============================================" -ForegroundColor Cyan
-Write-Host "[✔] Installation Completed!" -ForegroundColor Green
+Write-Host "[SUCCESS] Installation Completed!" -ForegroundColor Green
 Write-Host "=============================================" -ForegroundColor Cyan
+

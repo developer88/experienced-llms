@@ -1,7 +1,11 @@
 import argparse
-import sys
 import json
 from pathlib import Path
+import sys
+
+_BASE_DIR = Path(__file__).resolve().parent.parent
+if str(_BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(_BASE_DIR))
 
 import src.config as config
 from src.db import init_db, get_active_facts, get_active_skills

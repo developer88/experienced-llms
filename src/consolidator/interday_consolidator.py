@@ -121,6 +121,16 @@ class InterdayConsolidator:
             skills_updated=0
         )
 
+        # 7. Archive raw daily logs older than target_date to prevent unbounded accumulation
+        archive_dir = config.RAW_DAYS_DIR / "archive"
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        for rf in raw_files:
+            if rf.stem < date_str:
+                dest = archive_dir / rf.name
+                if dest.exists():
+                    dest = archive_dir / f"{rf.stem}_{datetime.now().strftime('%H%M%S')}.md"
+                rf.rename(dest)
+
         return config.MASTER_EXPERIENCE_FILE, summary
 
     def _parse_consolidation_response(self, raw_json: str, fallback_md: str) -> Tuple[str, str, List[dict]]:

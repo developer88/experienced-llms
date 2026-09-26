@@ -278,6 +278,33 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
         self.assertIn("# Master AI Experience", saved_md)
         self.assertIn("Always run npm inside WSL", saved_md)
 
+    def test_interday_consolidation_archives_old_logs(self):
+        from src.consolidator.interday_consolidator import InterdayConsolidator
+        config.RAW_DAYS_DIR = self.test_path / "raw_days"
+        config.MASTER_EXPERIENCE_FILE = self.test_path / "EXPERIENCE.md"
+        config.ensure_directories()
+
+        old_file = config.RAW_DAYS_DIR / "2026-09-20.md"
+        with open(old_file, "w", encoding="utf-8") as f:
+            f.write("# 2026-09-20 Log\n- Old rule\n")
+
+        today_file = config.RAW_DAYS_DIR / "2026-09-26.md"
+        with open(today_file, "w", encoding="utf-8") as f:
+            f.write("# 2026-09-26 Log\n- Today rule\n")
+
+        client = MockLLMClient(response_text="""{
+            "updated_experience_markdown": "# Master AI Experience\\n- Rule",
+            "superseded_facts": [],
+            "summary_of_changes": "Archived old logs."
+        }""")
+        consolidator = InterdayConsolidator(client)
+        consolidator.consolidate("2026-09-26")
+
+        archive_dir = config.RAW_DAYS_DIR / "archive"
+        self.assertTrue((archive_dir / "2026-09-20.md").exists())
+        self.assertFalse(old_file.exists())
+        self.assertTrue(today_file.exists())
+
     def test_config_save_load(self):
         config.CONFIG_FILE = self.test_path / "config.json"
         test_cfg = {
