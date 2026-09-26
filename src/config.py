@@ -1,7 +1,9 @@
+import json
 import os
 import sys
 import re
 from pathlib import Path
+from typing import Dict, Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,38 +22,70 @@ def safe_exists(p: Path) -> bool:
     except (OSError, IOError):
         return False
 
-# Database
-DEFAULT_DB = BASE_DIR / "data" / "memory.db"
-DB_PATH = resolve_path(os.getenv("EXPERIENCED_LLMS_DB", str(DEFAULT_DB)))
+# Global Home for Experienced LLMs
+DEFAULT_HOME = Path.home() / ".experienced-llms"
+EXPERIENCED_HOME = resolve_path(os.getenv("EXPERIENCED_LLMS_HOME", str(DEFAULT_HOME)))
 
-# Storage roots for Markdown memories
-RAW_OBSIDIAN = os.getenv(
-    "OBSIDIAN_MEMORY_DIR",
-    r"C:\Users\andrey\Google Drive Streaming\My Drive\obsidian\personal_gdrive\Project implementations\LLMs experience\memory"
-)
-DEFAULT_OBSIDIAN_DIR = resolve_path(RAW_OBSIDIAN)
+CONFIG_FILE = EXPERIENCED_HOME / "config.json"
+MASTER_EXPERIENCE_FILE = EXPERIENCED_HOME / "EXPERIENCE.md"
+RAW_DAYS_DIR = EXPERIENCED_HOME / "raw_days"
+SKILLS_DIR = EXPERIENCED_HOME / "skills"
+DB_PATH = resolve_path(os.getenv("EXPERIENCED_LLMS_DB", str(EXPERIENCED_HOME / "memory.db")))
 
-# If Obsidian directory is accessible, use it, otherwise fall back to local workspace memory dir
-MEMORY_ROOT = DEFAULT_OBSIDIAN_DIR if safe_exists(DEFAULT_OBSIDIAN_DIR.parent) else (BASE_DIR / "memory")
-SESSIONS_DIR = MEMORY_ROOT / "sessions"
-DAILY_DIR = MEMORY_ROOT / "daily"
-SKILLS_DIR = BASE_DIR / "skills"
-CORE_PROFILE_FILE = MEMORY_ROOT / "core_profile.md"
+# Legacy workspace paths for backward compatibility and tests
+MEMORY_ROOT = EXPERIENCED_HOME
+SESSIONS_DIR = EXPERIENCED_HOME / "sessions"
+DAILY_DIR = EXPERIENCED_HOME / "daily"
+CORE_PROFILE_FILE = EXPERIENCED_HOME / "core_profile.md"
 
-# LLM Providers
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
+# Token bounds
+CORE_PROFILE_MAX_WORDS = 150
+JIT_SKILL_MAX_WORDS = 220
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash") # or gemini-2.0-flash / 3.8
+DEFAULT_CONFIG: Dict[str, Any] = {
+    "provider": "gemini",
+    "gemini_api_key": os.getenv("GEMINI_API_KEY", ""),
+    "gemini_model": os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+    "claude_api_key": os.getenv("ANTHROPIC_API_KEY", ""),
+    "claude_model": os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-latest"),
+    "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
+    "openai_model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+    "openai_base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+    "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+    "ollama_model": os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b"),
+    "schedule_time": "02:00"
+}
 
-# Token and size bounds
-CORE_PROFILE_MAX_WORDS = 150 # approx 150-200 tokens
-JIT_SKILL_MAX_WORDS = 220    # approx 200-300 tokens
+def load_config() -> Dict[str, Any]:
+    """Load configuration from config.json, merged with defaults."""
+    cfg = DEFAULT_CONFIG.copy()
+    if CONFIG_FILE.exists():
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                cfg.update(saved)
+        except Exception:
+            pass
+    # Environment variable overrides
+    if os.getenv("GEMINI_API_KEY"):
+        cfg["gemini_api_key"] = os.getenv("GEMINI_API_KEY")
+    if os.getenv("ANTHROPIC_API_KEY"):
+        cfg["claude_api_key"] = os.getenv("ANTHROPIC_API_KEY")
+    if os.getenv("OPENAI_API_KEY"):
+        cfg["openai_api_key"] = os.getenv("OPENAI_API_KEY")
+    return cfg
+
+def save_config(cfg: Dict[str, Any]):
+    """Save configuration to config.json."""
+    ensure_directories()
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
 
 def ensure_directories():
     """Ensure that all required directory trees exist."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EXPERIENCED_HOME.mkdir(parents=True, exist_ok=True)
+    RAW_DAYS_DIR.mkdir(parents=True, exist_ok=True)
+    SKILLS_DIR.mkdir(parents=True, exist_ok=True)
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     DAILY_DIR.mkdir(parents=True, exist_ok=True)
-    SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)

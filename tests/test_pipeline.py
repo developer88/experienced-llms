@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 from src.models import FactCategory, FactStatus, MemoryFact
@@ -113,7 +114,7 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
         mock_client = MockLLMClient(response_text=reconciliation_response)
         consolidator = DailyConsolidator(mock_client)
 
-        date_str = "2026-09-21"
+        date_str = datetime.now().strftime("%Y-%m-%d")
         daily_path = consolidator.consolidate_date(date_str)
 
         self.assertTrue(daily_path.exists())
@@ -220,6 +221,74 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
 
         worker_prompt = build_worker_prompt()
         self.assertIn("Strict execution rule", worker_prompt)
+
+    def test_intraday_deterministic_logging(self):
+        from src.intraday import log_intraday
+        config.RAW_DAYS_DIR = self.test_path / "raw_days"
+        config.ensure_directories()
+
+        fact = log_intraday(
+            rule_statement="Never hardcode credentials in source code.",
+            category="user_preference",
+            scope="security",
+            context_reason="Leak prevention",
+            session_id="session_intraday_test"
+        )
+
+        self.assertIsNotNone(fact.id)
+        self.assertEqual(fact.category, FactCategory.USER_PREFERENCE)
+
+        # Check raw file written
+        raw_files = list(config.RAW_DAYS_DIR.glob("*.md"))
+        self.assertEqual(len(raw_files), 1)
+        with open(raw_files[0], "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertIn("Never hardcode credentials in source code", content)
+        self.assertIn("Leak prevention", content)
+
+    def test_interday_consolidation(self):
+        from src.consolidator.interday_consolidator import InterdayConsolidator
+        config.RAW_DAYS_DIR = self.test_path / "raw_days"
+        config.MASTER_EXPERIENCE_FILE = self.test_path / "EXPERIENCE.md"
+        config.ensure_directories()
+
+        # Seed an intraday log
+        from src.intraday import log_intraday
+        log_intraday(
+            rule_statement="Always run npm inside WSL.",
+            category="user_preference",
+            scope="global",
+            session_id="session_1"
+        )
+
+        mock_json = """{
+            "updated_experience_markdown": "# Master AI Experience\\n\\n## 1. User Directives\\n- Always run npm inside WSL.",
+            "superseded_facts": [],
+            "summary_of_changes": "Added WSL execution rule."
+        }"""
+        client = MockLLMClient(response_text=mock_json)
+        consolidator = InterdayConsolidator(client)
+
+        path, summary = consolidator.consolidate("2026-09-26")
+        self.assertTrue(path.exists())
+        self.assertEqual(summary, "Added WSL execution rule.")
+
+        with open(path, "r", encoding="utf-8") as f:
+            saved_md = f.read()
+        self.assertIn("# Master AI Experience", saved_md)
+        self.assertIn("Always run npm inside WSL", saved_md)
+
+    def test_config_save_load(self):
+        config.CONFIG_FILE = self.test_path / "config.json"
+        test_cfg = {
+            "provider": "claude",
+            "claude_api_key": "sk-ant-test1234",
+            "claude_model": "claude-3-5-sonnet-latest"
+        }
+        config.save_config(test_cfg)
+        loaded = config.load_config()
+        self.assertEqual(loaded["provider"], "claude")
+        self.assertEqual(loaded["claude_model"], "claude-3-5-sonnet-latest")
 
 if __name__ == "__main__":
     unittest.main()

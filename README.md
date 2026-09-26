@@ -1,147 +1,145 @@
 # Experienced LLMs
 
-> **Self-Learning Memory & JIT Skill Consolidation for Local & Cloud LLMs**
+> **Universal Self-Learning Memory & Autonomous Consolidation Engine for Any AI Setup**
 
-Experienced LLMs provides an autonomous cognitive pipeline that learns from user interactions, eliminating the need to manually author instructions or prompt skills.
+Experienced LLMs is a standalone, AI-agnostic memory engine that learns from your daily coding interactions. It automatically accumulates user preferences, architectural decisions, and bug corrections—eliminating the need to manually author skills or prompt rules.
 
-It is specifically tailored to the local execution constraints of 7B/14B models on consumer hardware (e.g. NVIDIA RTX 4060 8GB VRAM) and hybrid setups with Gemini 3.8 Flash:
-- **Zero Memory Bloat**: Small local models (2k–4k context limit) cannot digest long chat histories or huge skill registries.
-- **Automated JIT Skill Synthesis**: Repeated lessons, user preferences, and mistake corrections are automatically compiled into **150–300 token operational constraint wrappers** stored in `./skills/auto_*.md`.
-- **Core User Profile**: Key universal directives are condensed into `core_profile.md` (< 200 tokens) for instant injection into system prompts.
-- **Transparent & Human-in-the-Loop**: All memories are stored as plain Markdown (fully compatible with Obsidian) and indexed in a lightweight SQLite database (`PRAGMA foreign_keys = ON`).
+It works with **any AI environment**: pure cloud models (Gemini, Claude, OpenAI), local models (Ollama, LM Studio), or hybrid agent setups (Antigravity, Cursor, Claude Code).
 
 ---
 
-## The 4-Step Pipeline
+## Architecture: Decoupled & Cost-Efficient
 
+```mermaid
+flowchart TD
+    subgraph AgentSpace ["1. Universal Agent / LLM Skill"]
+        Agent["Any LLM Agent (Antigravity, Cursor, Claude Code, etc.)"]
+        ReadExp["Read: ~/.experienced-llms/EXPERIENCE.md"]
+        AppendLog["On correction/milestone: experienced-llms log ..."]
+        ReadExp --> Agent
+        Agent --> AppendLog
+    end
+
+    subgraph IntradaySpace ["2. Intraday Collector (Zero-Cost / Deterministic)"]
+        AppendLog --> RawDay["~/.experienced-llms/raw_days/YYYY-MM-DD.md<br/>(Pure Append-Only Log)"]
+        AppendLog --> SQLite[("~/.experienced-llms/memory.db")]
+    end
+
+    subgraph ScheduledSpace ["3. Inter-day Consolidator (Scheduled LLM Daemon)"]
+        Cron["Nightly Cron / Task Scheduler (e.g. 02:00 AM)"]
+        ConsolidateCLI["experienced-llms consolidate"]
+        LLM["Configured LLM (Gemini / Claude / OpenAI / Ollama)"]
+        MasterExp["~/.experienced-llms/EXPERIENCE.md"]
+
+        Cron --> ConsolidateCLI
+        ConsolidateCLI --> LLM
+        RawDay --> LLM
+        MasterExp --> LLM
+        LLM -->|"Deduplicate, resolve conflicts, prune"| MasterExp
+    end
 ```
-  [Chat Session Transcript]
-              │
-              ▼ (Step 1: Session Extractor)
-   memory/sessions/YYYY-MM-DD_HHMM.md
-              │
-              ▼ (Step 2: Daily Aggregation)
-      memory/daily/YYYY-MM-DD.md
-              │
-              ▼ (Step 3: Reconciliation & JIT Skill Compiler)
-  ┌───────────────────────────────────────────────┐
-  │  1. Invalidate superseded facts               │
-  │  2. Synthesize skills (skills/auto_*.md)      │
-  │  3. Condense core profile (core_profile.md)   │
-  └───────────────────────────────────────────────┘
-              │
-              ▼ (Step 4: Next Session Runtime Context)
-  Injected into 7B Worker prompt:
-  - core_profile.md (< 200 tokens)
-  - Exactly one relevant JIT skill (150-300 tokens)
+
+### 1. Intraday Collector (0 Tokens / 100% Offline)
+During daytime coding sessions, when a user corrects the model or expresses a preference, no LLM call is made. The entry is appended deterministically to `~/.experienced-llms/raw_days/YYYY-MM-DD.md` and indexed in local SQLite. Fast, free, and completely offline.
+
+### 2. Inter-day Consolidation (Autonomous Nightly LLM Daemon)
+Once a night (e.g., 02:00 AM), a scheduled cron/Task Scheduler task runs `experienced-llms consolidate`:
+- Compares today's raw session logs with the existing `~/.experienced-llms/EXPERIENCE.md`.
+- Invokes the configured LLM backend (Gemini API, Claude, OpenAI, or local Ollama).
+- **Resolves contradictions**: If today's rule supersedes an older rule, it removes/replaces the obsolete directive.
+- **Deduplicates**: Keeps the master experience sharp, authoritative, and concise (< 1,200 words).
+
+---
+
+## One-Click Installation
+
+### Linux / macOS / WSL
+```bash
+git clone https://github.com/andrey-eremin/experienced-llms.git
+cd experienced-llms
+bash install.sh
+```
+
+### Windows (PowerShell)
+```powershell
+git clone https://github.com/andrey-eremin/experienced-llms.git
+cd experienced-llms
+.\install.ps1
+```
+
+The installer automatically:
+1. Initializes `~/.experienced-llms/` storage and SQLite database.
+2. Installs the executable `experienced-llms` command.
+3. Automatically installs the agent skill into Antigravity (`~/.gemini/config/skills/experienced-llms/SKILL.md`).
+4. Registers the nightly consolidation schedule (via user crontab or Windows Task Scheduler).
+
+---
+
+## Quick Start & CLI Reference
+
+### 1. Log an Intraday Directive (Zero Tokens)
+```bash
+experienced-llms log "Always execute npm and node commands inside WSL" --category user_preference --reason "Windows host path conflicts"
+```
+
+Categories: `user_preference`, `technical_decision`, `mistake_correction`, `project_gotcha`.
+
+### 2. View Active Master Experience
+```bash
+experienced-llms show
+```
+
+### 3. Check System & Scheduler Status
+```bash
+experienced-llms status
+```
+
+### 4. Configure Consolidator LLM Provider
+Configure which model runs the nightly consolidation pass:
+```bash
+# Gemini (Google AI Pro or Free tier)
+experienced-llms setup --provider gemini --key "AIzaSy..." --model "gemini-1.5-flash"
+
+# Anthropic Claude
+experienced-llms setup --provider claude --key "sk-ant-..." --model "claude-3-5-sonnet-latest"
+
+# OpenAI or OpenAI-Compatible (vLLM, LM Studio)
+experienced-llms setup --provider openai --key "sk-..." --model "gpt-4o-mini"
+
+# Local Ollama
+experienced-llms setup --provider ollama --model "qwen2.5-coder:7b"
+```
+
+### 5. Run Consolidation Manually
+```bash
+experienced-llms consolidate
+```
+
+### 6. Manage Scheduled Daemon
+```bash
+# Check schedule
+experienced-llms schedule --status
+
+# Install or change execution time (e.g. 03:00 AM)
+experienced-llms schedule --install --time "03:00"
+
+# Uninstall schedule
+experienced-llms schedule --uninstall
 ```
 
 ---
 
-## Directory Structure
+## Universal Agent Skill (`skill/SKILL.md`)
 
-```
-experienced-llms/
-├── schema.sql                     # SQLite schema (sessions, memory_facts, skills)
-├── src/
-│   ├── config.py                  # Cross-platform paths (Windows/WSL/Obsidian)
-│   ├── db.py                      # Database access & foreign key enforcement
-│   ├── models.py                  # Domain dataclasses
-│   ├── llm_client.py              # Ollama, Gemini 3.8 Flash, and Mock clients
-│   ├── extractors/
-│   │   └── session_extractor.py   # Step 1: High-signal fact extraction
-│   ├── consolidator/
-│   │   ├── daily_consolidator.py  # Step 2: Daily aggregation & conflict resolution
-│   │   └── skill_compiler.py      # Step 3: Auto-skill synthesis & core profile
-│   └── cli.py                     # Command-line interface
-├── skills/                        # Generated JIT skills (150-300 tokens each)
-├── memory/                        # Plain Markdown memory vault (Obsidian-compatible)
-│   ├── sessions/                  # Raw session extractions
-│   ├── daily/                     # Daily consolidated reports
-│   └── core_profile.md            # Active master profile (<200 tokens)
-├── tests/
-│   └── test_pipeline.py           # Comprehensive automated test suite
-└── examples/
-    ├── sample_transcript.txt      # Example user-assistant conversation
-    └── run_demo.py                # End-to-end pipeline demonstration
-```
-
----
-
-## Quick Start (WSL / Linux / Windows)
-
-### 1. Initialize Storage & Database
-```bash
-python3 -m src.cli init
-```
-
-### 2. Extract Memory from a Session
-```bash
-python3 -m src.cli extract --file examples/sample_transcript.txt --scope "experienced-llms"
-```
-
-### 3. Run Daily Consolidation
-```bash
-python3 -m src.cli consolidate --date 2026-09-21
-```
-
-### 4. Compile JIT Skills & Core Profile
-```bash
-python3 -m src.cli compile-skills
-```
-
-### 5. View Status & Runtime Context
-```bash
-python3 -m src.cli status
-python3 -m src.cli show-context
-```
-
-## How LLMs Understand and Use This (The Prompt Protocol)
-
-When you start a session with an LLM (Gemini 3.8 Flash, Claude 3.5, GPT-4o, or local Ollama), how does the model know what to do?
-
-The system exports a self-contained operating protocol that you feed directly into the LLM's system prompt (or paste into Claude Projects / Cursor rules / Antigravity):
-
-### 1. For High-Level Orchestrators (Cloud or Local Planner)
-Run:
-```bash
-python3 -m src.cli prompt --target orchestrator
-```
-Or simply load **`memory/ACTIVE_CONTEXT.md`** (which is auto-generated on each consolidation pass).
-
-**What the LLM sees:**
-- **Active User Profile & Directives**: Explicit bullet points of what rules and constraints must be strictly obeyed.
-- **JIT Skills Catalog**: A lightweight enum/index of available modular skills (e.g. `auto_wsl_node_runner: Ensures node/npm scripts run in WSL`). The orchestrator knows it can delegate this skill to workers.
-- **The Self-Learning Feedback Contract**: An explicit directive instructing the LLM:
-  > *"At the end of your session or milestone, if new user preferences, architectural decisions, or mistake corrections occurred, emit a `<session_learning>` block."*
-
-### 2. For Small Local Workers (7B/14B in 8GB VRAM)
-Small models cannot read the entire skill catalog without attention degradation. Instead, generate a tight, 200–300 token execution prompt with exactly **one** targeted skill:
-```bash
-python3 -m src.cli prompt --target worker --skill auto_wsl_node_runner
-```
-**What the 7B model sees:**
-- The compact core rules (<100 tokens).
-- The exact input/output operational wrapper for that specific task.
-- Zero conversational fluff.
-
----
-
-## The Autonomous Learning Loop
-
-```
-1. You chat with the LLM (Gemini / Claude / Local) with ACTIVE_CONTEXT.md in its system prompt.
-2. During the session, the LLM makes a mistake and you correct it ("Always run npm in WSL!").
-3. At the end of the session, the LLM emits:
-     <session_learning>
-     - [user_preference] (global): Always run npm in WSL | Windows host node path fails
-     </session_learning>
-4. Session Extractor ingests the session (either via CLI hook or transcript file).
-5. Nightly Cron runs:
-     python3 -m src.cli consolidate
-     python3 -m src.cli compile-skills
-6. Next morning, ACTIVE_CONTEXT.md has the new rule consolidated, and skills/auto_wsl_runner.md is ready!
-```
+The package includes a universal agent skill in `skill/SKILL.md`:
+* **On Session Start**: Any AI agent simply reads `~/.experienced-llms/EXPERIENCE.md` to adopt your non-negotiable rules.
+* **On Correction**: If shell tools are available, the agent calls `experienced-llms log ...`. If running without shell access, it emits:
+  ```markdown
+  <session_learning>
+  - [category] (scope): Operational rule statement | Context or reason
+  </session_learning>
+  ```
+  which is automatically ingested.
 
 ---
 
@@ -150,4 +148,3 @@ python3 -m src.cli prompt --target worker --skill auto_wsl_node_runner
 ```bash
 python3 -m unittest discover -s tests
 ```
-
