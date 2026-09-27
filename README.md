@@ -175,14 +175,12 @@ experienced-llms integrate --target pi
 ## Universal Agent Skill (`skill/SKILL.md`)
 
 The package includes a universal agent skill in `skill/SKILL.md`:
-* **On Session Start**: Any AI agent simply reads `~/.experienced-llms/EXPERIENCE.md` to adopt your non-negotiable rules.
-* **On Correction**: If shell tools are available, the agent calls `experienced-llms log ...`. If running without shell access, it emits:
-  ```markdown
-  <session_learning>
-  - [category] (scope): Operational rule statement | Context or reason
-  </session_learning>
+* **On Session Start**: Any AI agent reads `~/.experienced-llms/EXPERIENCE.md` to adopt your non-negotiable rules.
+* **On Correction or Heuristic Discovery**: The agent immediately runs the local CLI tool:
+  ```bash
+  experienced-llms log "<rule statement>" --reason "<root cause or why>" --category [defensive_heuristic|technical_decision|project_gotcha|user_preference]
   ```
-  which is automatically ingested.
+  This deterministically records the heuristic to SQLite and today's markdown log with zero tokens.
 
 ---
 

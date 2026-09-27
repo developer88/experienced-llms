@@ -57,7 +57,8 @@ if ($hasWindowsPython) {
         # Configure Windows Task Scheduler for WSL consolidation (replaces WSL crontab)
         Write-Host "[+] Registering Windows Task Scheduler nightly consolidation (02:00 AM)..." -ForegroundColor Green
         wsl -e bash -lc "experienced-llms schedule --uninstall" | Out-Null
-        schtasks /create /tn "ExperiencedLLMsConsolidator" /tr "wsl.exe -d Ubuntu -- bash -lc ""experienced-llms consolidate""" /sc daily /st 02:00 /f | Out-Null
+        $trCmd = 'wsl.exe -d Ubuntu -- bash -lc \"experienced-llms consolidate\"'
+        schtasks /create /tn "ExperiencedLLMsConsolidator" /tr $trCmd /sc daily /st 02:00 /f | Out-Null
 
         # Also configure Windows startup trigger so consolidation runs whenever you turn on your PC
         $StartupFolder = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup"

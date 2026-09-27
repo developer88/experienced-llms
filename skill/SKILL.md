@@ -22,9 +22,3 @@ Run the local command:
 experienced-llms log "<rule statement>" --reason "<root cause or why>" --category [defensive_heuristic|technical_decision|project_gotcha|user_preference] [--scope <project>]
 ```
 
-*(If shell tool is unavailable, append to your response:)*
-```markdown
-<session_learning>
-- [category] (scope): Rule statement | Root cause or reason
-</session_learning>
-```

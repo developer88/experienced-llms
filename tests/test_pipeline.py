@@ -216,7 +216,7 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
 
         orch_prompt = build_orchestrator_prompt()
         self.assertIn("Standardize on SQLite with WAL mode", orch_prompt)
-        self.assertIn("<session_learning>", orch_prompt)
+        self.assertIn("experienced-llms log", orch_prompt)
         self.assertIn("Experienced LLM Operating Protocol", orch_prompt)
 
         worker_prompt = build_worker_prompt()

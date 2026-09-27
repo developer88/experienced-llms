@@ -47,16 +47,12 @@ Obey these rules strictly. They represent verified preferences, architectural ch
 When decomposing tasks or dispatching instructions to local workers or tool calls, reference these modular skills when applicable:
 {skills_text}
 
-## 3. Self-Learning & Memory Feedback Contract
-Whenever a session concludes, a user corrects your code/approach, or an unrecoverable mistake is fixed, emit a `<session_learning>` block at the end of your response:
-
-```markdown
-<session_learning>
-- [category] (scope): Concise operational rule statement | Why this rule was created
-</session_learning>
+## 3. Operational Heuristic Logging
+Whenever a user corrects your code/approach, specifies an operational preference, or an edge case is discovered, execute:
+```bash
+experienced-llms log "<rule statement>" --reason "<context or why>" --category [defensive_heuristic|user_preference|technical_decision|project_gotcha|mistake_correction]
 ```
-Categories must be one of: `user_preference`, `technical_decision`, `mistake_correction`, `project_gotcha`.
-The downstream background consolidator will automatically ingest this block into your long-term memory.
+This deterministically updates your long-term memory with zero token overhead.
 """
     return prompt.strip()
 
