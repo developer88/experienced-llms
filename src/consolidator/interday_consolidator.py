@@ -90,6 +90,8 @@ class InterdayConsolidator:
                 json_mode=True
             )
             updated_md, summary, superseded = self._parse_consolidation_response(raw_response, master_content)
+            if updated_md == master_content and facts:
+                updated_md, summary, superseded = self._deterministic_fallback_consolidation(facts, "Empty LLM markdown")
         except Exception as e:
             updated_md, summary, superseded = self._deterministic_fallback_consolidation(facts, str(e))
 

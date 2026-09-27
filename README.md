@@ -184,8 +184,22 @@ The package includes a universal agent skill in `skill/SKILL.md`:
 
 ---
 
-## Running Automated Tests
+## Automated & Isolated Testing
+
+Experienced LLMs provides isolated test tools so developers and AI coding agents can verify changes without mutating live host memory or scheduled tasks:
 
 ```bash
+# 1. Hermetic Unit Tests (< 0.5s)
 python3 -m unittest discover -s tests
+
+# 2. Isolated Full-Cycle Sandbox Test (Zero host contamination)
+bash scripts/test_sandbox.sh
+
+# Cross-platform Python Sandbox Runner
+python3 scripts/test_sandbox.py
+
+# 3. Containerized Acceptance Test (Docker)
+bash scripts/test_in_docker.sh
 ```
+
+See [TESTING.md](TESTING.md) for complete safe testing guidelines.

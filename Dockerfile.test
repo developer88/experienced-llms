@@ -1,0 +1,36 @@
+# Isolated Container Test Environment for Experienced LLMs
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/root
+
+# Install runtime dependencies (Python 3, git, cron, curl)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    git \
+    cron \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+COPY . /workspace
+
+# Verify line endings and execute full lifecycle
+RUN chmod +x install.sh
+RUN ./install.sh
+
+# Run test suite and CLI validation
+CMD ["bash", "-c", "\
+    set -e && \
+    echo '=== Running Unit Test Suite ===' && \
+    python3 -m unittest discover -s tests && \
+    echo '=== Testing CLI Logging in Container ===' && \
+    ~/.local/bin/experienced-llms log 'Test container rule' --reason 'Isolation check' --category defensive_heuristic && \
+    echo '=== Testing Consolidator ===' && \
+    ~/.local/bin/experienced-llms consolidate && \
+    echo '=== Checking Master Experience ===' && \
+    ~/.local/bin/experienced-llms show && \
+    echo '[SUCCESS] All isolated container checks passed!'\
+"]
