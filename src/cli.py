@@ -12,7 +12,6 @@ from src.db import init_db, get_active_facts, get_active_skills
 from src.llm_client import get_llm_client
 from src.intraday import log_intraday
 from src.consolidator.interday_consolidator import InterdayConsolidator
-from src.consolidator.daily_consolidator import DailyConsolidator
 from src.consolidator.skill_compiler import SkillCompiler
 from src.extractors.session_extractor import SessionExtractor
 from src.scheduler import install_schedule, uninstall_schedule, get_schedule_status

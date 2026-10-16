@@ -55,31 +55,21 @@ class InterdayConsolidator:
         else:
             master_content = "# Master AI Experience\n\n*Initial empty experience.*"
 
-        # 2. Collect raw daily logs that haven't been archived
-        raw_files = sorted(config.RAW_DAYS_DIR.glob("*.md"))
-        new_experiences_text = ""
-        for rf in raw_files:
-            with open(rf, "r", encoding="utf-8") as f:
-                new_experiences_text += f"\n\n--- Source: {rf.name} ---\n" + f.read()
-
-        # Also get active facts from SQLite
+        # 2. Get active facts from SQLite
         facts = get_active_facts()
         facts_summary = "\n".join(
             f"- [ID:{f.id}] [{f.category.value}] ({f.scope}): {f.rule_statement} (Reason: {f.context_reason or 'N/A'})"
             for f in facts
         )
 
-        if not new_experiences_text.strip() and not facts:
-            return config.MASTER_EXPERIENCE_FILE, "No new experiences or facts to consolidate."
+        if not facts:
+            return config.MASTER_EXPERIENCE_FILE, "No active facts to consolidate."
 
         # 3. Formulate consolidation prompt
         user_prompt = f"""=== CURRENT MASTER EXPERIENCE ===
 {master_content}
 
-=== NEW EXPERIENCES TO MERGE (Date: {date_str}) ===
-{new_experiences_text}
-
-=== ACTIVE STRUCTURED FACTS ===
+=== ACTIVE STRUCTURED FACTS (Date: {date_str}) ===
 {facts_summary}
 """
 
@@ -122,16 +112,6 @@ class InterdayConsolidator:
             facts_count=len(facts),
             skills_updated=0
         )
-
-        # 7. Archive raw daily logs older than target_date to prevent unbounded accumulation
-        archive_dir = config.RAW_DAYS_DIR / "archive"
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        for rf in raw_files:
-            if rf.stem < date_str:
-                dest = archive_dir / rf.name
-                if dest.exists():
-                    dest = archive_dir / f"{rf.stem}_{datetime.now().strftime('%H%M%S')}.md"
-                rf.rename(dest)
 
         return config.MASTER_EXPERIENCE_FILE, summary
 

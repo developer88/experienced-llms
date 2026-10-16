@@ -63,16 +63,12 @@ class SessionExtractor:
             )
             facts = self._parse_response(raw_response, session_id, scope_default)
 
-        # Write session markdown file
-        session_md_path = config.SESSIONS_DIR / f"{session_id}.md"
         md_content = self._render_markdown(session_id, facts, transcript)
-        with open(session_md_path, "w", encoding="utf-8") as f:
-            f.write(md_content)
 
-        # Store in SQLite
+        # Store in SQLite (Zero intermediate markdown files)
         conn = get_connection()
         try:
-            insert_session(session_id=session_id, source=source, raw_path=str(session_md_path), conn=conn)
+            insert_session(session_id=session_id, source=source, raw_path="", conn=conn)
             for fact in facts:
                 fact_id = insert_fact(fact, conn=conn)
                 fact.id = fact_id

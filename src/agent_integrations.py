@@ -19,7 +19,7 @@ UNIVERSAL_INSTRUCTION_BLOCK = """<!-- BEGIN EXPERIENCED-LLMS -->
 def install_antigravity(target_dir: Optional[Path] = None) -> Tuple[bool, str]:
     dest = target_dir or (Path.home() / ".gemini" / "config" / "skills" / "experienced-llms")
     dest.mkdir(parents=True, exist_ok=True)
-    src_skill = config.BASE_DIR / "skill" / "SKILL.md"
+    src_skill = config.BASE_DIR / "skills" / "experienced-llm" / "SKILL.md"
     skill_file = dest / "SKILL.md"
     if src_skill.exists():
         with open(src_skill, "r", encoding="utf-8") as f_in:

@@ -30,7 +30,6 @@ EXPERIENCED_HOME = resolve_path(os.getenv("EXPERIENCED_LLMS_HOME", str(DEFAULT_H
 
 CONFIG_FILE = EXPERIENCED_HOME / "config.json"
 MASTER_EXPERIENCE_FILE = EXPERIENCED_HOME / "EXPERIENCE.md"
-RAW_DAYS_DIR = EXPERIENCED_HOME / "raw_days"
 SKILLS_DIR = EXPERIENCED_HOME / "skills"
 DB_PATH = resolve_path(os.getenv("EXPERIENCED_LLMS_DB", str(EXPERIENCED_HOME / "memory.db")))
 
@@ -99,12 +98,8 @@ STARTER_EXPERIENCE_TEMPLATE = """# Master AI Experience
 """
 
 def ensure_directories():
-    """Ensure that all required directory trees exist and starter experience file is initialized."""
+    """Ensure that the home directory exists and starter experience file is initialized."""
     EXPERIENCED_HOME.mkdir(parents=True, exist_ok=True)
-    RAW_DAYS_DIR.mkdir(parents=True, exist_ok=True)
-    SKILLS_DIR.mkdir(parents=True, exist_ok=True)
-    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-    DAILY_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not MASTER_EXPERIENCE_FILE.exists():
         try:

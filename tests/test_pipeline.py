@@ -8,7 +8,6 @@ from src.models import FactCategory, FactStatus, MemoryFact
 from src.db import init_db, get_active_facts, insert_fact, supersede_fact, get_connection
 from src.llm_client import MockLLMClient
 from src.extractors.session_extractor import SessionExtractor
-from src.consolidator.daily_consolidator import DailyConsolidator
 from src.consolidator.skill_compiler import SkillCompiler
 import src.config as config
 
@@ -20,12 +19,13 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
 
         # Override config paths for isolation
         config.DB_PATH = self.test_path / "test_memory.db"
-        config.MEMORY_ROOT = self.test_path / "memory"
-        config.SESSIONS_DIR = config.MEMORY_ROOT / "sessions"
-        config.DAILY_DIR = config.MEMORY_ROOT / "daily"
+        config.EXPERIENCED_HOME = self.test_path / "home"
+        config.MASTER_EXPERIENCE_FILE = config.EXPERIENCED_HOME / "EXPERIENCE.md"
+        config.MEMORY_ROOT = config.EXPERIENCED_HOME
         config.SKILLS_DIR = self.test_path / "skills"
-        config.CORE_PROFILE_FILE = config.MEMORY_ROOT / "core_profile.md"
+        config.CORE_PROFILE_FILE = config.EXPERIENCED_HOME / "core_profile.md"
 
+        config.ensure_directories()
         init_db(config.DB_PATH)
 
     def tearDown(self):
@@ -72,63 +72,11 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
         )
 
         self.assertEqual(len(result.facts), 2)
-        self.assertTrue((config.SESSIONS_DIR / "2026-09-21_session_01.md").exists())
 
         active_facts = get_active_facts(conn=get_connection(config.DB_PATH))
         self.assertEqual(len(active_facts), 2)
         self.assertEqual(active_facts[0].category, FactCategory.USER_PREFERENCE)
         self.assertEqual(active_facts[1].category, FactCategory.MISTAKE_CORRECTION)
-
-    def test_superseding_and_daily_consolidation(self):
-        conn = get_connection(config.DB_PATH)
-        from src.db import insert_session
-        insert_session("session_old", conn=conn)
-        insert_session("session_new", conn=conn)
-        fact1_id = insert_fact(
-            MemoryFact(
-                category=FactCategory.TECHNICAL_DECISION,
-                rule_statement="Use pnpm for package management.",
-                context_reason="Initial choice",
-                session_id="session_old"
-            ),
-            conn=conn
-        )
-        fact2_id = insert_fact(
-            MemoryFact(
-                category=FactCategory.TECHNICAL_DECISION,
-                rule_statement="Migrated from pnpm to npm in WSL.",
-                context_reason="User preference changed",
-                session_id="session_new"
-            ),
-            conn=conn
-        )
-        conn.close()
-
-        # Mock reconciler response saying fact2 supersedes fact1
-        reconciliation_response = f"""{{
-            "superseded_pairs": [
-                {{"old_fact_id": {fact1_id}, "new_fact_id": {fact2_id}, "reason": "Switched package managers"}}
-            ],
-            "daily_summary": "Standardized on npm in WSL across all node tasks."
-        }}"""
-        mock_client = MockLLMClient(response_text=reconciliation_response)
-        consolidator = DailyConsolidator(mock_client)
-
-        date_str = datetime.now().strftime("%Y-%m-%d")
-        daily_path = consolidator.consolidate_date(date_str)
-
-        self.assertTrue(daily_path.exists())
-        with open(daily_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        self.assertIn("Standardized on npm in WSL", content)
-        self.assertIn("Migrated from pnpm to npm in WSL", content)
-        self.assertIn("Superseded / Deprecated Directives", content)
-
-        # Ensure old fact is not active
-        active_facts = get_active_facts(conn=get_connection(config.DB_PATH))
-        self.assertEqual(len(active_facts), 1)
-        self.assertEqual(active_facts[0].id, fact2_id)
 
     def test_skill_compiler_and_core_profile(self):
         conn = get_connection(config.DB_PATH)
@@ -224,7 +172,6 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
 
     def test_intraday_deterministic_logging(self):
         from src.intraday import log_intraday
-        config.RAW_DAYS_DIR = self.test_path / "raw_days"
         config.ensure_directories()
 
         fact = log_intraday(
@@ -237,19 +184,23 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
 
         self.assertIsNotNone(fact.id)
         self.assertEqual(fact.category, FactCategory.USER_PREFERENCE)
+        self.assertEqual(fact.is_consolidated, 0)
 
-        # Check raw file written
-        raw_files = list(config.RAW_DAYS_DIR.glob("*.md"))
-        self.assertEqual(len(raw_files), 1)
-        with open(raw_files[0], "r", encoding="utf-8") as f:
-            content = f.read()
-        self.assertIn("Never hardcode credentials in source code", content)
-        self.assertIn("Leak prevention", content)
+        # Check SQLite record has is_consolidated = 0
+        conn = get_connection(config.DB_PATH)
+        row = conn.execute("SELECT is_consolidated, status, rule_statement FROM memory_facts WHERE id = ?", (fact.id,)).fetchone()
+        conn.close()
+
+        self.assertEqual(row["is_consolidated"], 0)
+        self.assertEqual(row["status"], "active")
+        self.assertEqual(row["rule_statement"], "Never hardcode credentials in source code.")
+
+        # Zero raw markdown files created
+        md_files = [p for p in self.test_path.rglob("*.md") if p != config.MASTER_EXPERIENCE_FILE]
+        self.assertEqual(len(md_files), 0)
 
     def test_interday_consolidation(self):
         from src.consolidator.interday_consolidator import InterdayConsolidator
-        config.RAW_DAYS_DIR = self.test_path / "raw_days"
-        config.MASTER_EXPERIENCE_FILE = self.test_path / "EXPERIENCE.md"
         config.ensure_directories()
 
         # Seed an intraday log
@@ -277,33 +228,6 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
             saved_md = f.read()
         self.assertIn("# Master AI Experience", saved_md)
         self.assertIn("Always run npm inside WSL", saved_md)
-
-    def test_interday_consolidation_archives_old_logs(self):
-        from src.consolidator.interday_consolidator import InterdayConsolidator
-        config.RAW_DAYS_DIR = self.test_path / "raw_days"
-        config.MASTER_EXPERIENCE_FILE = self.test_path / "EXPERIENCE.md"
-        config.ensure_directories()
-
-        old_file = config.RAW_DAYS_DIR / "2026-09-20.md"
-        with open(old_file, "w", encoding="utf-8") as f:
-            f.write("# 2026-09-20 Log\n- Old rule\n")
-
-        today_file = config.RAW_DAYS_DIR / "2026-09-26.md"
-        with open(today_file, "w", encoding="utf-8") as f:
-            f.write("# 2026-09-26 Log\n- Today rule\n")
-
-        client = MockLLMClient(response_text="""{
-            "updated_experience_markdown": "# Master AI Experience\\n- Rule",
-            "superseded_facts": [],
-            "summary_of_changes": "Archived old logs."
-        }""")
-        consolidator = InterdayConsolidator(client)
-        consolidator.consolidate("2026-09-26")
-
-        archive_dir = config.RAW_DAYS_DIR / "archive"
-        self.assertTrue((archive_dir / "2026-09-20.md").exists())
-        self.assertFalse(old_file.exists())
-        self.assertTrue(today_file.exists())
 
     def test_config_save_load(self):
         config.CONFIG_FILE = self.test_path / "config.json"
