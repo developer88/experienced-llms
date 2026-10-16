@@ -1,4 +1,5 @@
 import json
+import subprocess
 import urllib.request
 import urllib.error
 from abc import ABC, abstractmethod
@@ -169,6 +170,47 @@ class OpenAIClient(BaseLLMClient):
         except urllib.error.URLError as e:
             raise RuntimeError(f"OpenAI API error: {e}")
 
+class ExternalCommandLLMClient(BaseLLMClient):
+    """Client that executes an external CLI command via subprocess stdin/stdout (e.g. agy, claude, ollama)."""
+    def __init__(self, command_str: str):
+        if not command_str or not command_str.strip():
+            raise ValueError("External LLM command string cannot be empty.")
+        self.command_str = command_str.strip()
+
+    def generate(self, system_prompt: str, user_prompt: str, json_mode: bool = False) -> str:
+        prompt_parts = []
+        if system_prompt:
+            prompt_parts.append(f"System Instructions:\n{system_prompt}")
+        if user_prompt:
+            prompt_parts.append(f"Task:\n{user_prompt}")
+        if json_mode:
+            prompt_parts.append(
+                "CRITICAL OUTPUT FORMAT REQUIREMENT:\nYou MUST respond with ONLY a valid, parseable JSON object matching the requested schema. "
+                "Do NOT include markdown backticks (like ```json), commentary, or extra prose."
+            )
+        full_input = "\n\n".join(prompt_parts)
+
+        try:
+            process = subprocess.run(
+                self.command_str,
+                input=full_input,
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=False
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to execute external LLM command '{self.command_str}': {e}")
+
+        if process.returncode != 0:
+            err = process.stderr.strip() or f"Process exited with code {process.returncode}"
+            raise RuntimeError(f"External LLM command failed (code {process.returncode}): {err}")
+
+        output = process.stdout.strip()
+        if not output:
+            raise RuntimeError(f"External LLM command '{self.command_str}' returned empty output.")
+        return output
+
 class MockLLMClient(BaseLLMClient):
     """Mock client used for automated unit and integration tests."""
     def __init__(self, response_text: str = ""):
@@ -183,8 +225,18 @@ class MockLLMClient(BaseLLMClient):
         })
         return self.response_text
 
-def get_llm_client(provider: Optional[str] = None) -> BaseLLMClient:
+def get_llm_client(provider: Optional[str] = None, external_cmd: Optional[str] = None) -> BaseLLMClient:
+    if external_cmd:
+        return ExternalCommandLLMClient(command_str=external_cmd)
+
+    if provider and provider.startswith("cmd:"):
+        return ExternalCommandLLMClient(command_str=provider[4:].strip())
+
     cfg = load_config()
+    configured_cmd = cfg.get("external_llm_cmd")
+    if configured_cmd and not provider:
+        return ExternalCommandLLMClient(command_str=configured_cmd)
+
     selected_provider = (provider or cfg.get("provider", "gemini")).lower()
 
     if selected_provider == "gemini":
@@ -208,4 +260,4 @@ def get_llm_client(provider: Optional[str] = None) -> BaseLLMClient:
             base_url=cfg.get("ollama_base_url", "http://localhost:11434"),
             model=cfg.get("ollama_model", "qwen2.5-coder:7b")
         )
-    raise ValueError(f"Unknown provider '{selected_provider}'. Supported: gemini, claude, openai, ollama.")
+    raise ValueError(f"Unknown provider '{selected_provider}'. Supported: gemini, claude, openai, ollama, or external command via --llm / cmd: prefix.")

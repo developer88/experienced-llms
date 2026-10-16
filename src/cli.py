@@ -36,8 +36,16 @@ def main():
     cons_parser = subparsers.add_parser("consolidate", help="Consolidate multi-day experiences into EXPERIENCE.md via LLM")
     cons_parser.add_argument("--date", "-d", type=str, default=None, help="Target date YYYY-MM-DD")
     cons_parser.add_argument("--provider", "-p", type=str, default=None, choices=["gemini", "claude", "openai", "ollama"])
+    cons_parser.add_argument("--llm", type=str, default=None, help="External CLI LLM command (e.g. 'agy query', 'claude', 'ollama run mistral')")
+    cons_parser.add_argument("--prepare", action="store_true", help="Pathway B: Generate and output consolidation prompt JSON payload without calling LLM")
+    cons_parser.add_argument("--apply", type=str, default=None, help="Pathway B: Apply structured consolidation JSON payload (string or file path)")
+    cons_parser.add_argument("--max-words", type=int, default=None, help="Override maximum words ceiling for EXPERIENCE.md (default: 1200)")
+    cons_parser.add_argument("--template", type=str, default=None, help="Path to custom consolidation prompt template")
 
-    # 3. show (display master experience)
+    # 3. render (rebuild clean EXPERIENCE.md directly from active SQLite facts)
+    subparsers.add_parser("render", help="Rebuild clean EXPERIENCE.md directly from active SQLite facts (zero token waste)")
+
+    # 4. show (display master experience)
     subparsers.add_parser("show", help="Display the active master EXPERIENCE.md")
 
     # 4. schedule (manage cron / Task Scheduler)
@@ -113,11 +121,59 @@ def main():
         print(f"Logged [{fact.category.value.upper()}] ({fact.scope}): {fact.rule_statement}")
 
     elif args.command == "consolidate":
-        client = get_llm_client(args.provider)
+        # Pathway B - Step 1: --prepare
+        if args.prepare:
+            consolidator = InterdayConsolidator()
+            sys_prompt, user_prompt, meta = consolidator.build_consolidation_prompt(
+                target_date=args.date,
+                max_words=args.max_words,
+                template_path=Path(args.template) if args.template else None
+            )
+            payload = {
+                "metadata": meta,
+                "system_prompt": sys_prompt,
+                "user_prompt": user_prompt,
+            }
+            print(json.dumps(payload, indent=2))
+            return
+
+        # Pathway B - Step 3: --apply
+        if args.apply:
+            consolidator = InterdayConsolidator()
+            apply_input = args.apply
+            target_path = Path(apply_input)
+            if target_path.exists() and target_path.is_file():
+                with open(target_path, "r", encoding="utf-8") as f:
+                    apply_input = f.read()
+
+            path, summary = consolidator.apply_consolidation_result(apply_input, engine_type="agent_skill")
+            print(f"[✓] Consolidation applied successfully: {path}")
+            print(f"[✓] Summary: {summary}")
+            return
+
+        # Pathway A: Tooling / CLI / Scheduler Driven
+        client = get_llm_client(provider=args.provider, external_cmd=args.llm)
         consolidator = InterdayConsolidator(client)
-        path, summary = consolidator.consolidate(args.date)
-        print(f"Consolidation complete: {path}")
-        print(f"Summary: {summary}")
+        try:
+            path, summary = consolidator.consolidate(
+                target_date=args.date,
+                max_words=args.max_words,
+                template_path=Path(args.template) if args.template else None
+            )
+            print(f"[✓] Consolidation complete: {path}")
+            print(f"[✓] Summary: {summary}")
+        except Exception as e:
+            print(f"[-] Consolidation aborted without mutating facts: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.command == "render":
+        from src.consolidator.interday_consolidator import render_active_experience_markdown
+        facts = get_active_facts()
+        rendered_md = render_active_experience_markdown(facts)
+        config.ensure_directories()
+        with open(config.MASTER_EXPERIENCE_FILE, "w", encoding="utf-8") as f:
+            f.write(rendered_md)
+        print(f"[✓] Rendered clean EXPERIENCE.md directly from active SQLite facts ({len(facts)} active facts): {config.MASTER_EXPERIENCE_FILE}")
 
     elif args.command == "show":
         if config.MASTER_EXPERIENCE_FILE.exists():

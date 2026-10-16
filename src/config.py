@@ -95,6 +95,9 @@ STARTER_EXPERIENCE_TEMPLATE = """# Master AI Experience
 
 ## 4. Anti-Patterns & Critical Gotchas
 - (None recorded yet)
+
+## 5. Mistake Corrections & Fixes
+- (None recorded yet)
 """
 
 def ensure_directories():
