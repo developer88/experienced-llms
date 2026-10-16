@@ -7,6 +7,7 @@ _BASE_DIR = Path(__file__).resolve().parent.parent
 if str(_BASE_DIR) not in sys.path:
     sys.path.insert(0, str(_BASE_DIR))
 
+from src import __version__
 import src.config as config
 from src.db import init_db, get_active_facts, get_active_skills
 from src.llm_client import get_llm_client
@@ -20,6 +21,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Experienced LLMs: Autonomous Self-Learning & Memory Consolidation"
     )
+    parser.add_argument("--version", "-v", action="version", version=f"experienced-llms {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # 1. log (intraday deterministic logger)

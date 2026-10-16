@@ -6,7 +6,7 @@ $ExperiencedHome = Join-Path $HOME ".experienced-llms"
 $SkillDir = Join-Path $HOME ".gemini\config\skills\experienced-llms"
 
 Write-Host "=============================================" -ForegroundColor Cyan
-Write-Host "  Experienced LLMs: Windows Installer" -ForegroundColor Cyan
+Write-Host "  Experienced LLMs (1.0.0rc3): Windows Installer" -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 
 # 1. Check Python on Windows or fallback to WSL

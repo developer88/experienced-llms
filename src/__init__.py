@@ -1,2 +1,2 @@
-"""Experienced LLMs: Self-learning memory and JIT skill consolidation engine."""
-__version__ = "0.1.0"
+"""Experienced LLMs: Self-learning memory and autonomous consolidation engine."""
+__version__ = "1.0.0rc3"

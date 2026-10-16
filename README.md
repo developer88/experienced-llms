@@ -1,57 +1,78 @@
-# Experienced LLMs
+<p align="center">
+  <img src="assets/logo.jpg" alt="Experienced LLMs Logo" width="520" />
+</p>
 
-> **Universal Self-Learning Memory & Autonomous Consolidation Engine for Any AI Setup**
+# Experienced LLMs (v1.0.0rc3)
 
-Experienced LLMs is a standalone, AI-agnostic memory engine that learns from your daily coding interactions. It automatically accumulates user preferences, architectural decisions, and bug corrections—eliminating the need to manually author skills or prompt rules.
+> **Universal Self-Learning Heuristic Ledger & Autonomous Consolidation Engine for AI Coding Agents**
 
-It works with **any AI environment**: pure cloud models (Gemini, Claude, OpenAI), local models (Ollama, LM Studio), or hybrid agent setups (Antigravity, Cursor, Claude Code).
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Version: 1.0.0rc3](https://img.shields.io/badge/Version-1.0.0rc3-green.svg)](https://github.com/developer88/experienced-llms/releases)
+[![AgenticSkills: S-Rank](https://img.shields.io/badge/AgenticSkills-Compliant-orange.svg)](https://agenticskills.io/methodology)
+
+This is not a traditional vector AI memory. The goal is to add **self-education to LLM agents**. We equip AI models with tools and abilities via Skills and MCP, and customize their behaviour via `AGENTS.md` or system prompts, but tailoring them continuously is hard and time-consuming.
+
+**Experienced LLMs** gives AI agents a tool to learn from your daily feedback, mistakes, and architectural choices. It does not replace `AGENTS.md`, Skills, or MCPs—instead, it significantly improves your local agents by synthesizing your operational wisdom into a lean, authoritative master experience document.
 
 ---
 
-## Architecture: Decoupled & Cost-Efficient
+## 🔒 Privacy-First: Two Files Only (Zero Workspace Clutter)
+
+Experienced LLMs provides an unconditional privacy guarantee:
+- **Zero repository scanning**: It never indexes, inspects, or uploads your workspace source code, private files, or git history.
+- **Zero workspace pollution**: No `.experienced/` or scratch directories created inside your projects.
+- **Zero intermediate clutter**: Eliminates raw daily logs, markdown transcripts, and unpruned temporary files.
+- **100% Contained to Two Files**: Everything lives strictly inside your user home directory `~/.experienced-llms/`:
+  1. `~/.experienced-llms/memory.db`: Local SQLite database (WAL mode) storing structured heuristic ledgers, sessions, migrations, and consolidation audits.
+  2. `~/.experienced-llms/EXPERIENCE.md`: Single, authoritative, consolidated operational rulebook injected into agents on startup.
+
+---
+
+## 🏗️ Architecture: Dual Consolidation Engine
 
 ```mermaid
 flowchart TD
-    subgraph AgentSpace ["1. Universal Agent / LLM Skill"]
-        Agent["Any LLM Agent (Antigravity, Cursor, Claude Code, etc.)"]
-        ReadExp["Read: ~/.experienced-llms/EXPERIENCE.md"]
-        AppendLog["On correction/milestone: experienced-llms log ..."]
-        ReadExp --> Agent
-        Agent --> AppendLog
+    subgraph Daytime ["Daytime Operational Logging (Zero-Token, Instant, 100% Offline)"]
+        Agent["AI Agent / Developer"] -->|"experienced-llms log '<rule>' --reason '<why>' --category ..."| DB[("~/.experienced-llms/memory.db<br/>(is_consolidated = 0)")]
     end
 
-    subgraph IntradaySpace ["2. Intraday Collector (Zero-Cost / Deterministic)"]
-        AppendLog --> RawDay["~/.experienced-llms/raw_days/YYYY-MM-DD.md<br/>(Pure Append-Only Log)"]
-        AppendLog --> SQLite[("~/.experienced-llms/memory.db")]
+    subgraph Consolidation ["Dual Consolidation Pathways (LLM-Only, Zero Token Waste)"]
+        direction TB
+        subgraph PathwayA ["Pathway A: Tooling / Scheduler Driven"]
+            Cron["Nightly Cron / Task Scheduler (02:00 AM)"] --> ConsCLI["experienced-llms consolidate [--llm '<cmd>']"]
+            ConsCLI -->|"Pipe stdin/stdout"| ExtLLM["External CLI (agy, claude, ollama)"]
+            ExtLLM -->|"Structured JSON"| ConsCLI
+        end
+
+        subgraph PathwayB ["Pathway B: In-Session Agent Reasoning"]
+            AgentSched["Agent Session"] --> Prep["experienced-llms consolidate --prepare"]
+            Prep -->|"Active & pending facts"| AgentReason["Agent Internal LLM Reasoning"]
+            AgentReason -->|"Apply structured JSON"| Apply["experienced-llms consolidate --apply '<payload>'"]
+        end
     end
 
-    subgraph ScheduledSpace ["3. Inter-day Consolidator (Scheduled LLM Daemon)"]
-        Cron["Nightly Cron / Task Scheduler (e.g. 02:00 AM)"]
-        ConsolidateCLI["experienced-llms consolidate"]
-        LLM["Configured LLM (Gemini / Claude / OpenAI / Ollama)"]
-        MasterExp["~/.experienced-llms/EXPERIENCE.md"]
-
-        Cron --> ConsolidateCLI
-        ConsolidateCLI --> LLM
-        RawDay --> LLM
-        MasterExp --> LLM
-        LLM -->|"Deduplicate, resolve conflicts, prune"| MasterExp
-    end
+    DB <--> Consolidation
+    Consolidation -->|"Render clean markdown (0 comments, 0 timestamps)"| OutputFile["~/.experienced-llms/EXPERIENCE.md"]
 ```
 
-### 1. Intraday Collector (0 Tokens / 100% Offline)
-During daytime coding sessions, when a user corrects the model or expresses a preference, no LLM call is made. The entry is appended deterministically to `~/.experienced-llms/raw_days/YYYY-MM-DD.md` and indexed in local SQLite. Fast, free, and completely offline.
+### 1. Daytime Operational Capture (Zero Tokens, 100% Offline)
+When you correct an agent or establish a project rule, no LLM call is made. The rule is written deterministically to `~/.experienced-llms/memory.db` with `is_consolidated = 0`. Fast, free, and completely offline.
 
-### 2. Inter-day Consolidation (Autonomous Nightly LLM Daemon)
-Once a night (e.g., 02:00 AM), a scheduled cron/Task Scheduler task runs `experienced-llms consolidate`:
-- Compares today's raw session logs with the existing `~/.experienced-llms/EXPERIENCE.md`.
-- Invokes the configured LLM backend (Gemini API, Claude, OpenAI, or local Ollama).
-- **Resolves contradictions**: If today's rule supersedes an older rule, it removes/replaces the obsolete directive.
-- **Deduplicates**: Keeps the master experience sharp, authoritative, and concise (< 1,200 words).
+### 2. Autonomous Consolidation (LLM-Only, Zero Fallbacks)
+Nightly or on demand, consolidation merges pending facts into the active rulebook:
+- **Semantic Deduplication**: Paraphrased or overlapping entries are merged into single, concise directives.
+- **Contradiction Resolution**: If a newer rule invalidates an older directive, the older rule is superseded in SQLite.
+- **Zero Token Waste**: Stripped of HTML comments (`<!-- ... -->`) and generation timestamps.
+- **5 Canonical Sections**:
+  1. `## 1. User Directives & Preferences`
+  2. `## 2. Defensive Safeguards & Heuristics`
+  3. `## 3. Project-Specific Constraints`
+  4. `## 4. Anti-Patterns & Critical Gotchas`
+  5. `## 5. Mistake Corrections & Fixes`
 
 ---
 
-## One-Click Installation
+## ⚡ One-Click Installation
 
 ### Linux / macOS / WSL
 ```bash
@@ -67,139 +88,102 @@ cd experienced-llms
 .\install.ps1
 ```
 
-The installer automatically:
-1. Initializes `~/.experienced-llms/` storage and the SQLite database.
-2. Installs the executable `experienced-llms` command.
-3. Automatically installs agent instructions across all detected AI environments:
-   - **Antigravity**: `~/.gemini/config/skills/experienced-llms/SKILL.md`
-   - **Claude (Claude Code / Desktop)**: `~/.claude/CLAUDE.md`
-   - **GitHub Copilot**: `.github/copilot-instructions.md`
-   - **Pi & Open Agent Standard**: `AGENTS.md`
-   - **Cursor**: `.cursorrules`
-4. Registers the consolidation schedule (Windows Task Scheduler or user crontab).
+The installer automatically initializes your local database baseline (`001_1_0_0rc3_baseline`), adds binary wrappers to your PATH (`~/.local/bin/experienced-llms` or `experienced-llms.cmd`), configures agent skills, and registers a nightly consolidation schedule (02:00 AM).
 
 ---
 
-## Multi-Platform & Hybrid (Windows + WSL) Architecture
+## 🚀 Quickstarts
 
-Experienced LLMs is built to adapt seamlessly to your developer workflow regardless of OS or environment:
+### 👤 Developer Quickstart (Human)
 
-| Setup | Agent Environment | CLI & Engine Execution | Storage & Scheduler |
-| :--- | :--- | :--- | :--- |
-| **Pure Linux / macOS** | Linux / macOS terminal | Native Python 3 (`~/.local/bin`) | Native `~/.experienced-llms` + user `crontab` |
-| **Pure Windows** | Windows terminal / IDEs | Native Windows Python (`%USERPROFILE%`) | `%USERPROFILE%\.experienced-llms` + Windows Task Scheduler |
-| **Hybrid (Windows + WSL)** | Windows `agy.exe`, VS Code | Auto-bridged `.cmd` shim to WSL | Windows symlink to WSL storage + Windows Task Scheduler with on-boot trigger |
-
-### How the Windows + WSL Hybrid Bridge Works
-If you run agents on Windows (such as `agy.exe` or Antigravity IDE) while Python resides inside WSL:
-1. **Shared Storage**: Windows `%USERPROFILE%\.experienced-llms` is linked directly to your WSL home (`\\wsl.localhost\Ubuntu\home\<user>\.experienced-llms`).
-2. **Transparent Command Execution**: A Windows CLI shim (`experienced-llms.cmd`) automatically passes commands into WSL (`wsl.exe -d Ubuntu -- bash -lc "experienced-llms %*"`).
-3. **Dual Agent Skill Registration**: The skill is installed in both Windows (`%USERPROFILE%\.gemini\...`) and WSL (`~/.gemini\...`), so both Windows and WSL agents operate on the **exact same live memory**.
-4. **PC Turn-On / Boot Resiliency**: In addition to the 02:00 AM Task Scheduler task, a background startup trigger (`ExperiencedLLMsConsolidateOnBoot.cmd`) runs in Windows Startup so consolidation always executes when you power on your PC.
-
----
-
-## Quick Start & CLI Reference
-
-### 1. Log an Intraday Directive (Zero Tokens)
+1. **Log a rule or preference**:
 ```bash
-experienced-llms log "Always execute npm and node commands inside WSL" --category user_preference --reason "Windows host path conflicts"
+experienced-llms log "Always run npm inside WSL, never directly on Windows" \
+  --category user_preference \
+  --reason "Avoid Windows path resolution issues"
 ```
 
-Categories: `user_preference`, `technical_decision`, `mistake_correction`, `project_gotcha`.
-
-### 2. View Active Master Experience
+2. **Inspect your active rulebook**:
 ```bash
 experienced-llms show
 ```
 
-### 3. Check System & Scheduler Status
+3. **Manually trigger consolidation**:
 ```bash
-experienced-llms status
+# Using external CLI command (e.g. agy, claude, ollama)
+experienced-llms consolidate --llm "agy query"
+
+# Or using configured API provider (gemini, claude, openai, ollama)
+experienced-llms consolidate --provider gemini
 ```
 
-### 4. Configure Consolidator LLM Provider
-Configure which model runs the nightly consolidation pass:
+4. **Re-render EXPERIENCE.md directly from SQLite facts**:
 ```bash
-# Gemini (Google AI Pro or Free tier)
-experienced-llms setup --provider gemini --key "AIzaSy..." --model "gemini-1.5-flash"
-
-# Anthropic Claude
-experienced-llms setup --provider claude --key "sk-ant-..." --model "claude-3-5-sonnet-latest"
-
-# OpenAI or OpenAI-Compatible (vLLM, LM Studio)
-experienced-llms setup --provider openai --key "sk-..." --model "gpt-4o-mini"
-
-# Local Ollama
-experienced-llms setup --provider ollama --model "qwen2.5-coder:7b"
-```
-
-### 5. Run Consolidation Manually
-```bash
-experienced-llms consolidate
-```
-
-### 6. Manage Scheduled Daemon
-```bash
-# Check active schedules (Windows Task Scheduler, Crontab)
-experienced-llms schedule --status
-
-# Install with auto-detection (default: 02:00 AM)
-experienced-llms schedule --install --time "02:00"
-
-# Explicitly choose your preferred scheduler type:
-experienced-llms schedule --install --type auto       # Best for current OS
-experienced-llms schedule --install --type cron       # Linux/macOS/WSL crontab
-experienced-llms schedule --install --type schtasks   # Windows Task Scheduler
-
-# Uninstall schedule
-experienced-llms schedule --uninstall
-```
-
-### 7. Integrate with Specific AI Agents
-Install or refresh custom instructions in your active tools:
-```bash
-# Auto-detect and configure all installed tools
-experienced-llms integrate --target all
-
-# Or target specific tools
-experienced-llms integrate --target antigravity
-experienced-llms integrate --target claude
-experienced-llms integrate --target copilot
-experienced-llms integrate --target cursor
-experienced-llms integrate --target pi
+experienced-llms render
 ```
 
 ---
 
-## Universal Agent Skill (`skill/SKILL.md`)
+### 🤖 Agent Quickstart (LLM / Agentic Skills)
 
-The package includes a universal agent skill in `skill/SKILL.md`:
-* **On Session Start**: Any AI agent reads `~/.experienced-llms/EXPERIENCE.md` to adopt your non-negotiable rules.
-* **On Correction or Heuristic Discovery**: The agent immediately runs the local CLI tool:
-  ```bash
-  experienced-llms log "<rule statement>" --reason "<root cause or why>" --category [defensive_heuristic|technical_decision|project_gotcha|user_preference]
-  ```
-  This deterministically records the heuristic to SQLite and today's markdown log with zero tokens.
+If you are an AI coding agent (Antigravity, Cursor, Copilot, Claude Code):
+
+1. **On Session Start**:
+   Read `~/.experienced-llms/EXPERIENCE.md`. Strictly adhere to all directives, project constraints, and defensive heuristics defined there.
+
+2. **During Session (Daytime Capture)**:
+   Proactively log operational heuristics (Reason $\rightarrow$ Outcome), bug corrections, or user preferences:
+   ```bash
+   experienced-llms log "<operational rule>" --reason "<why/root cause>" --category [defensive_heuristic|user_preference|technical_decision|mistake_correction|project_gotcha]
+   ```
+
+3. **Nightly Consolidation (Pathway B)**:
+   - Run `experienced-llms consolidate --prepare` to obtain structured prompt and facts.
+   - Synthesize and resolve contradictions with your reasoning engine.
+   - Run `experienced-llms consolidate --apply '<json_payload>'` to commit the updates.
 
 ---
 
-## Automated & Isolated Testing
+## 🛠️ CLI Command Reference
 
-Experienced LLMs provides isolated test tools so developers and AI coding agents can verify changes without mutating live host memory or scheduled tasks:
+| Command | Description |
+|---|---|
+| `experienced-llms log "<rule>" ...` | Log an intraday heuristic (zero tokens, instant, offline) |
+| `experienced-llms consolidate` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
+| `experienced-llms consolidate --prepare` | Output prompt payload for in-session agent reasoning (Pathway B) |
+| `experienced-llms consolidate --apply '<json>'` | Apply structured consolidation output to SQLite and markdown |
+| `experienced-llms render` | Rebuild clean `EXPERIENCE.md` directly from active SQLite facts |
+| `experienced-llms show` | Print active `~/.experienced-llms/EXPERIENCE.md` |
+| `experienced-llms migrate` | Run pending full-stack migrations (DB, skills, scripts, config) |
+| `experienced-llms schedule --install` | Install nightly consolidation daemon (02:00 AM) |
+| `experienced-llms schedule --uninstall` | Remove nightly consolidation daemon |
+| `experienced-llms schedule --status` | Check status of scheduled consolidation daemon |
+| `experienced-llms integrate --target all` | Configure instructions across Antigravity, Claude, Copilot, Cursor, Pi |
+| `experienced-llms --version` | Display version information (`1.0.0rc3`) |
 
-```bash
-# 1. Hermetic Unit Tests (< 0.5s)
-python3 -m unittest discover -s tests
+---
 
-# 2. Isolated Full-Cycle Sandbox Test (Zero host contamination)
-bash scripts/test_sandbox.sh
+## 🧩 AgenticSkills Standards Compliance
 
-# Cross-platform Python Sandbox Runner
-python3 scripts/test_sandbox.py
+Experienced LLMs is packaged in full accordance with the [agenticskills.io/methodology](https://agenticskills.io/methodology) standard:
+- **Canonical Skill Location**: `skills/experienced-llm/SKILL.md`
+- **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc3`), author, repository, license, and keywords.
+- **Safety & Containment**: 100% offline daytime operation, zero capability escalation, zero private data leakage.
 
-# 3. Containerized Acceptance Test (Docker)
-bash scripts/test_in_docker.sh
-```
+---
 
-See [TESTING.md](TESTING.md) for complete safe testing guidelines.
+## 📜 Full-Stack Migration Scaffolding (Omakub / Rails Style)
+
+Prepared for seamless updates across 4 distinct operational layers:
+1. **SQLite Database Schema**: Sequential scripts (`migrations/00X_*.sql` or `.py`).
+2. **Agent Skill Definitions**: Synchronizing updated `SKILL.md` to agent directories.
+3. **CLI Scripts & Tooling**: Updating binary shims and system schedulers.
+4. **Configuration**: Injecting new configuration keys without overwriting user settings.
+
+Fresh installs in `1.0.0rc3` record `001_1_0_0rc3_baseline` in `schema_migrations` and exit cleanly.
+
+---
+
+## 📄 License
+
+MIT © [developer88](https://github.com/developer88)

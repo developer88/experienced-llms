@@ -8,7 +8,7 @@ SKILL_DIR="${HOME}/.gemini/config/skills/experienced-llms"
 EXPERIENCED_HOME="${HOME}/.experienced-llms"
 
 echo "============================================="
-echo "  Experienced LLMs: One-Click Installer"
+echo "  Experienced LLMs (1.0.0rc3): One-Click Installer"
 echo "============================================="
 
 # 1. Check Python 3
