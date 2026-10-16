@@ -49,7 +49,7 @@ if ($hasWindowsPython) {
         )
         foreach ($binFolder in $candidatePaths) {
             if (Test-Path $binFolder) {
-                Set-Content -Path (Join-Path $binFolder "experienced-llms.cmd") -Value "@wsl -e bash -c 'experienced-llms %*'" -Encoding ASCII
+                Set-Content -Path (Join-Path $binFolder "experienced-llms.cmd") -Value '@wsl -e bash -lc "experienced-llms %*"' -Encoding ASCII
                 break
             }
         }
