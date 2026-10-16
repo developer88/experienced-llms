@@ -29,7 +29,7 @@ Before taking any actions or proposing solutions:
 
 ---
 
-## 2. Daytime Operational Logging (Zero-Token, Instant, Offline)
+## 2. Daytime Operational Logging (Fast, Instant, Offline)
 
 Proactively record actionable operational heuristics, defensive safeguards, hidden gotchas, or user directives whenever discovered during a session.
 
@@ -78,8 +78,13 @@ When tasked with nightly memory consolidation as an autonomous agent:
 experienced-llms consolidate --apply '<json_or_file_path>'
 ```
 
+### Consolidation Configuration Options:
+- `--max-words <int>`: Override word count limit for `EXPERIENCE.md` (default: 1,200 words, configurable via `config.json`).
+- `--template <path>`: Supply a custom prompt template to override default consolidation logic.
+
 ### Manual Re-render:
 Rebuild `EXPERIENCE.md` directly from active SQLite facts at any time:
 ```bash
-experienced-llms render
+experienced-llms render [--max-words <int>]
 ```
+

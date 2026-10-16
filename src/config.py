@@ -54,7 +54,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "openai_base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     "ollama_base_url": os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
     "ollama_model": os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b"),
-    "schedule_time": "02:00"
+    "schedule_time": "02:00",
+    "max_experience_words": 1200
 }
 
 def load_config() -> Dict[str, Any]:

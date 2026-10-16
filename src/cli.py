@@ -25,7 +25,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # 1. log (intraday deterministic logger)
-    log_parser = subparsers.add_parser("log", help="Log an intraday rule or correction (zero tokens, instant, offline)")
+    log_parser = subparsers.add_parser("log", help="Log an intraday rule or correction (fast, instant, offline)")
     log_parser.add_argument("statement", type=str, help="Concise operational rule statement")
     log_parser.add_argument("--category", "-c", type=str, default="user_preference",
                             choices=["defensive_heuristic", "user_preference", "technical_decision", "mistake_correction", "project_gotcha"],
@@ -45,7 +45,8 @@ def main():
     cons_parser.add_argument("--template", type=str, default=None, help="Path to custom consolidation prompt template")
 
     # 3. render (rebuild clean EXPERIENCE.md directly from active SQLite facts)
-    subparsers.add_parser("render", help="Rebuild clean EXPERIENCE.md directly from active SQLite facts (zero token waste)")
+    render_parser = subparsers.add_parser("render", help="Rebuild clean EXPERIENCE.md directly from active SQLite facts")
+    render_parser.add_argument("--max-words", type=int, default=None, help="Override maximum words ceiling for EXPERIENCE.md (default: 1200)")
 
     # 4. show (display master experience)
     subparsers.add_parser("show", help="Display the active master EXPERIENCE.md")
@@ -171,7 +172,7 @@ def main():
     elif args.command == "render":
         from src.consolidator.interday_consolidator import render_active_experience_markdown
         facts = get_active_facts()
-        rendered_md = render_active_experience_markdown(facts)
+        rendered_md = render_active_experience_markdown(facts, max_words=args.max_words)
         config.ensure_directories()
         with open(config.MASTER_EXPERIENCE_FILE, "w", encoding="utf-8") as f:
             f.write(rendered_md)

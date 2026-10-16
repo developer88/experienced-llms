@@ -17,31 +17,7 @@ from src.db import (
 from src.llm_client import BaseLLMClient, ExternalCommandLLMClient
 from src.models import MemoryFact, FactCategory, FactStatus
 
-DEFAULT_CONSOLIDATION_TEMPLATE = """You are the master cognitive consolidation engine for Experienced LLMs.
-Your job is to merge new pending intraday facts with active memory and the current EXPERIENCE.md into a single, authoritative, high-density EXPERIENCE.md document.
-
-CANONICAL SECTIONS (Maintain these exact 5 headers in this order):
-# Master AI Experience
-## 1. User Directives & Preferences
-## 2. Defensive Safeguards & Heuristics
-## 3. Project-Specific Constraints
-## 4. Anti-Patterns & Critical Gotchas
-## 5. Mistake Corrections & Fixes
-
-CRITICAL CONSOLIDATION RULES:
-1. Semantic Deduplication: Merge redundant, overlapping, or paraphrased points into sharp, concise directives.
-2. Contradiction Resolution: If a pending rule invalidates, corrects, or replaces an older active rule, mark the older rule's ID in superseded_fact_ids.
-3. Maximum Word Count: Keep the entire output lean and operational (under {max_words} words).
-4. Zero Token Waste: Absolutely ZERO HTML comments (no <!-- ... -->), zero generation timestamps, zero conversational preamble or markdown code fence wrappers in the JSON string.
-
-YOU MUST RETURN A VALID JSON OBJECT MATCHING THIS SCHEMA:
-{{
-  "updated_experience_markdown": "# Master AI Experience\\n\\n## 1. User Directives & Preferences\\n...",
-  "processed_pending_ids": [list of pending fact IDs integrated],
-  "superseded_fact_ids": [list of older active fact IDs superseded],
-  "summary_of_changes": "1-2 sentences summarizing changes made"
-}}
-"""
+from src.consolidator.prompt_template import get_consolidation_template, DEFAULT_CONSOLIDATION_TEMPLATE
 
 def clean_markdown_experience(raw_md: str) -> str:
     """Strips HTML comments and generation timestamps to enforce zero token waste."""
@@ -53,7 +29,7 @@ def clean_markdown_experience(raw_md: str) -> str:
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip() + "\n"
 
-def render_active_experience_markdown(facts: Optional[List[MemoryFact]] = None) -> str:
+def render_active_experience_markdown(facts: Optional[List[MemoryFact]] = None, max_words: Optional[int] = None) -> str:
     """Renders clean, authoritative EXPERIENCE.md directly from active SQLite facts without LLM."""
     if facts is None:
         facts = get_active_facts()
@@ -88,7 +64,12 @@ def render_active_experience_markdown(facts: Optional[List[MemoryFact]] = None) 
             lines.append("- *(None recorded yet)*")
         lines.append("")
 
-    return "\n".join(lines).strip() + "\n"
+    rendered = "\n".join(lines).strip() + "\n"
+    if max_words:
+        words = rendered.split()
+        if len(words) > max_words:
+            rendered = " ".join(words[:max_words]).strip() + "\n"
+    return rendered
 
 class InterdayConsolidator:
     def __init__(self, llm_client: Optional[BaseLLMClient] = None):
@@ -135,11 +116,7 @@ class InterdayConsolidator:
         ) or "- *(None pending)*"
 
         # 3. Load prompt template
-        template = DEFAULT_CONSOLIDATION_TEMPLATE
-        custom_file = template_path or (config.EXPERIENCED_HOME / "consolidation_prompt.txt")
-        if custom_file and Path(custom_file).exists():
-            with open(custom_file, "r", encoding="utf-8") as f:
-                template = f.read()
+        template = get_consolidation_template(custom_path=template_path)
 
         system_prompt = template.replace("{max_words}", str(limit_words))
 

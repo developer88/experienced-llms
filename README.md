@@ -2,26 +2,25 @@
   <img src="assets/logo.jpg" alt="Experienced LLMs Logo" width="520" />
 </p>
 
-# Experienced LLMs (v1.0.0rc3)
-
-> **Universal Self-Learning Heuristic Ledger & Autonomous Consolidation Engine for AI Coding Agents**
+# Experienced LLMs
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Version: 1.0.0rc3](https://img.shields.io/badge/Version-1.0.0rc3-green.svg)](https://github.com/developer88/experienced-llms/releases)
 [![AgenticSkills: S-Rank](https://img.shields.io/badge/AgenticSkills-Compliant-orange.svg)](https://agenticskills.io/methodology)
 
-This is not a traditional vector AI memory. The goal is to add **self-education to LLM agents**. We equip AI models with tools and abilities via Skills and MCP, and customize their behaviour via `AGENTS.md` or system prompts, but tailoring them continuously is hard and time-consuming.
+This is not an AI memory, the goal is to add self-education to LLM agents. We give AI tools and abilities via Skills and MCP, we modify some of their behaviour via `AGENTS.md`, but tailoring it further is hard and time consuming.
 
-**Experienced LLMs** gives AI agents a tool to learn from your daily feedback, mistakes, and architectural choices. It does not replace `AGENTS.md`, Skills, or MCPs—instead, it significantly improves your local agents by synthesizing your operational wisdom into a lean, authoritative master experience document.
+Let's give AI a tool to learn on our feedback from day to day. It will not replace `AGENTS.md`, nor Skills or MCPs, but it will significantly improve your local agents and make them more tailored to you.
+
+This is a compiled production ready result of my 6 month experiment, that just works.
 
 ---
 
-## 🔒 Privacy-First: Two Files Only (Zero Workspace Clutter)
+## 🔒 Privacy-First: Two Files Only
 
-Experienced LLMs provides an unconditional privacy guarantee:
-- **Zero repository scanning**: It never indexes, inspects, or uploads your workspace source code, private files, or git history.
-- **Zero workspace pollution**: No `.experienced/` or scratch directories created inside your projects.
-- **Zero intermediate clutter**: Eliminates raw daily logs, markdown transcripts, and unpruned temporary files.
+Experienced LLMs is built with a strict privacy guarantee:
+- **Zero repository scanning**: It never indexes, inspects, or uploads your workspace source code, private files, or git commit history.
+- **Zero workspace pollution**: It never injects hidden dotfiles or configuration directories into your code repositories.
 - **100% Contained to Two Files**: Everything lives strictly inside your user home directory `~/.experienced-llms/`:
   1. `~/.experienced-llms/memory.db`: Local SQLite database (WAL mode) storing structured heuristic ledgers, sessions, migrations, and consolidation audits.
   2. `~/.experienced-llms/EXPERIENCE.md`: Single, authoritative, consolidated operational rulebook injected into agents on startup.
@@ -32,47 +31,41 @@ Experienced LLMs provides an unconditional privacy guarantee:
 
 ```mermaid
 flowchart TD
-    subgraph Daytime ["Daytime Operational Logging (Zero-Token, Instant, 100% Offline)"]
+    subgraph Daytime ["Daytime Operational Logging (100% Offline Local Tool)"]
         Agent["AI Agent / Developer"] -->|"experienced-llms log '<rule>' --reason '<why>' --category ..."| DB[("~/.experienced-llms/memory.db<br/>(is_consolidated = 0)")]
     end
 
-    subgraph Consolidation ["Dual Consolidation Pathways (LLM-Only, Zero Token Waste)"]
+    subgraph Consolidation ["LLM Consolidation Engine (Zero Token Waste)"]
         direction TB
-        subgraph PathwayA ["Pathway A: Tooling / Scheduler Driven"]
-            Cron["Nightly Cron / Task Scheduler (02:00 AM)"] --> ConsCLI["experienced-llms consolidate [--llm '<cmd>']"]
-            ConsCLI -->|"Pipe stdin/stdout"| ExtLLM["External CLI (agy, claude, ollama)"]
-            ExtLLM -->|"Structured JSON"| ConsCLI
+        subgraph CoreEngine ["Core Consolidation Cycle"]
+            Prep["1. Prepare: experienced-llms consolidate --prepare<br/>(Structured prompt payload)"]
+            Reason["2. Reason: Synthesize & Deduplicate<br/>(Via Agent or CLI LLM)"]
+            Apply["3. Apply: experienced-llms consolidate --apply '<payload>'<br/>(Updates SQLite & EXPERIENCE.md)"]
+            Prep --> Reason --> Apply
         end
 
-        subgraph PathwayB ["Pathway B: In-Session Agent Reasoning"]
-            AgentSched["Agent Session"] --> Prep["experienced-llms consolidate --prepare"]
-            Prep -->|"Active & pending facts"| AgentReason["Agent Internal LLM Reasoning"]
-            AgentReason -->|"Apply structured JSON"| Apply["experienced-llms consolidate --apply '<payload>'"]
+        subgraph Triggers ["Execution Pathways"]
+            PathwayB["Pathway B: In-Session Agent Reasoning<br/>(Autonomous Task)"] --> Prep
+            PathwayA["Pathway A: Nightly Scheduled Daemon<br/>(Cron / Task Scheduler)"] -->|"experienced-llms consolidate [--llm '<cmd>']"| CoreEngine
         end
     end
 
-    DB <--> Consolidation
-    Consolidation -->|"Render clean markdown (0 comments, 0 timestamps)"| OutputFile["~/.experienced-llms/EXPERIENCE.md"]
+    DB <--> CoreEngine
+    Apply -->|"Render clean markdown"| OutputFile["~/.experienced-llms/EXPERIENCE.md"]
 ```
 
-### 1. Daytime Operational Capture (Zero Tokens, 100% Offline)
-When you correct an agent or establish a project rule, no LLM call is made. The rule is written deterministically to `~/.experienced-llms/memory.db` with `is_consolidated = 0`. Fast, free, and completely offline.
+### 1. Daytime Operational Capture (100% Offline, Local CLI Tool)
+When an agent or developer records a correction or project preference, the rule is stored directly in `~/.experienced-llms/memory.db` with `is_consolidated = 0`. The CLI tool runs instantly and offline without invoking external LLM APIs.
 
-### 2. Autonomous Consolidation (LLM-Only, Zero Fallbacks)
+### 2. Autonomous Consolidation (LLM-Only)
 Nightly or on demand, consolidation merges pending facts into the active rulebook:
-- **Semantic Deduplication**: Paraphrased or overlapping entries are merged into single, concise directives.
-- **Contradiction Resolution**: If a newer rule invalidates an older directive, the older rule is superseded in SQLite.
-- **Zero Token Waste**: Stripped of HTML comments (`<!-- ... -->`) and generation timestamps.
-- **5 Canonical Sections**:
-  1. `## 1. User Directives & Preferences`
-  2. `## 2. Defensive Safeguards & Heuristics`
-  3. `## 3. Project-Specific Constraints`
-  4. `## 4. Anti-Patterns & Critical Gotchas`
-  5. `## 5. Mistake Corrections & Fixes`
+- Deduplicates and generalizes heuristics across the 5 canonical sections.
+- Resolves contradictions by marking outdated rules as superseded in SQLite.
+- Strips HTML comments and timestamps to guarantee zero token waste.
 
 ---
 
-## ⚡ One-Click Installation
+## ⚡ Installation
 
 ### Linux / macOS / WSL
 ```bash
@@ -88,78 +81,77 @@ cd experienced-llms
 .\install.ps1
 ```
 
-The installer automatically initializes your local database baseline (`001_1_0_0rc3_baseline`), adds binary wrappers to your PATH (`~/.local/bin/experienced-llms` or `experienced-llms.cmd`), configures agent skills, and registers a nightly consolidation schedule (02:00 AM).
+The installer initializes your local database baseline (`001_1_0_0rc3_baseline`), adds binary wrappers to your PATH (`~/.local/bin/experienced-llms` or `experienced-llms.cmd`), configures agent integrations, and registers a nightly consolidation schedule (02:00 AM).
 
 ---
 
-## 🚀 Quickstarts
+## 🚀 Usage Reference
 
-### 👤 Developer Quickstart (Human)
-
-1. **Log a rule or preference**:
+### 1. Log an Operational Rule or Preference
 ```bash
 experienced-llms log "Always run npm inside WSL, never directly on Windows" \
   --category user_preference \
   --reason "Avoid Windows path resolution issues"
 ```
 
-2. **Inspect your active rulebook**:
+### 2. Inspect Active Rulebook
 ```bash
 experienced-llms show
 ```
 
-3. **Manually trigger consolidation**:
+### 3. Run Consolidation
 ```bash
-# Using external CLI command (e.g. agy, claude, ollama)
+# Using external CLI tool (e.g. agy, claude, ollama)
 experienced-llms consolidate --llm "agy query"
 
 # Or using configured API provider (gemini, claude, openai, ollama)
 experienced-llms consolidate --provider gemini
 ```
 
-4. **Re-render EXPERIENCE.md directly from SQLite facts**:
+### 4. Re-render EXPERIENCE.md from SQLite Facts
 ```bash
 experienced-llms render
 ```
 
 ---
 
-### 🤖 Agent Quickstart (LLM / Agentic Skills)
+## 🧠 Consolidation Algorithm & Customization
 
-If you are an AI coding agent (Antigravity, Cursor, Copilot, Claude Code):
+The cognitive consolidation engine distills daytime learnings into high-density operational guidance while preserving factual integrity via an immutable SQLite ledger.
 
-1. **On Session Start**:
-   Read `~/.experienced-llms/EXPERIENCE.md`. Strictly adhere to all directives, project constraints, and defensive heuristics defined there.
+### Core Consolidation Rules
+1. **Semantic Deduplication**: Merges overlapping heuristics into sharp, concise directives.
+2. **Contradiction Resolution**: Detects obsolete rules and marks them `superseded` in SQLite.
+3. **5 Canonical Categories**: Preserves standard operational sections (User Directives, Defensive Safeguards, Project Constraints, Anti-Patterns, Mistake Corrections).
+4. **Token Density & Word Ceiling**: Restricts output length (`--max-words`, default 1200 words) with zero HTML comments or timestamps.
 
-2. **During Session (Daytime Capture)**:
-   Proactively log operational heuristics (Reason $\rightarrow$ Outcome), bug corrections, or user preferences:
-   ```bash
-   experienced-llms log "<operational rule>" --reason "<why/root cause>" --category [defensive_heuristic|user_preference|technical_decision|mistake_correction|project_gotcha]
-   ```
+### Custom Prompt Templates
+You can customize consolidation instructions and section taxonomy:
+- **Global override**: Place your template at `~/.experienced-llms/consolidation_prompt.txt`.
+- **One-off override**: Use `experienced-llms consolidate --template /path/to/template.txt`.
 
-3. **Nightly Consolidation (Pathway B)**:
-   - Run `experienced-llms consolidate --prepare` to obtain structured prompt and facts.
-   - Synthesize and resolve contradictions with your reasoning engine.
-   - Run `experienced-llms consolidate --apply '<json_payload>'` to commit the updates.
+For detailed architecture, JSON schemas, and domain-specific examples, see [Consolidation Algorithm Guide](docs/consolidation_algorithm.md).
 
 ---
 
 ## 🛠️ CLI Command Reference
 
-| Command | Description |
-|---|---|
-| `experienced-llms log "<rule>" ...` | Log an intraday heuristic (zero tokens, instant, offline) |
-| `experienced-llms consolidate` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
-| `experienced-llms consolidate --prepare` | Output prompt payload for in-session agent reasoning (Pathway B) |
-| `experienced-llms consolidate --apply '<json>'` | Apply structured consolidation output to SQLite and markdown |
-| `experienced-llms render` | Rebuild clean `EXPERIENCE.md` directly from active SQLite facts |
-| `experienced-llms show` | Print active `~/.experienced-llms/EXPERIENCE.md` |
-| `experienced-llms migrate` | Run pending full-stack migrations (DB, skills, scripts, config) |
-| `experienced-llms schedule --install` | Install nightly consolidation daemon (02:00 AM) |
-| `experienced-llms schedule --uninstall` | Remove nightly consolidation daemon |
-| `experienced-llms schedule --status` | Check status of scheduled consolidation daemon |
-| `experienced-llms integrate --target all` | Configure instructions across Antigravity, Claude, Copilot, Cursor, Pi |
-| `experienced-llms --version` | Display version information (`1.0.0rc3`) |
+| Command | Arguments / Flags | Description |
+|---|---|---|
+| `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an intraday heuristic (fast, offline, local) |
+| `experienced-llms consolidate` | `--date`, `--provider`, `--llm`, `--max-words`, `--template` | Consolidate pending facts into `EXPERIENCE.md` via LLM (Pathway A) |
+| `experienced-llms consolidate --prepare` | `--date`, `--max-words`, `--template` | Output prompt payload for in-session agent reasoning (Pathway B step 1) |
+| `experienced-llms consolidate --apply '<payload>'` | (Accepts JSON string or file path) | Apply structured consolidation payload to SQLite and markdown (Pathway B step 3) |
+| `experienced-llms render` | *(None)* | Rebuild clean `EXPERIENCE.md` directly from active SQLite facts |
+| `experienced-llms show` | *(None)* | Print active `~/.experienced-llms/EXPERIENCE.md` |
+| `experienced-llms status` | *(None)* | Show active facts, auto-skills, and schedule state |
+| `experienced-llms setup` | `--provider`, `--key`, `--model` | Configure LLM providers and credentials |
+| `experienced-llms schedule` | `--install`, `--uninstall`, `--status`, `--time`, `--type` | Manage scheduled nightly consolidation daemon |
+| `experienced-llms prompt` | `--target`, `--skill`, `--scope` | Generate ready-to-inject prompt for orchestrator or worker |
+| `experienced-llms integrate` | `--target`, `--workspace` | Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi) |
+| `experienced-llms migrate` | *(None)* | Run pending full-stack migrations across DB, skills, and configuration |
+| `experienced-llms init` | *(None)* | Initialize SQLite schema and directory structure |
+| `experienced-llms --version` | `-v` | Display version information (`1.0.0rc3`) |
 
 ---
 
@@ -172,18 +164,6 @@ Experienced LLMs is packaged in full accordance with the [agenticskills.io/metho
 
 ---
 
-## 📜 Full-Stack Migration Scaffolding (Omakub / Rails Style)
-
-Prepared for seamless updates across 4 distinct operational layers:
-1. **SQLite Database Schema**: Sequential scripts (`migrations/00X_*.sql` or `.py`).
-2. **Agent Skill Definitions**: Synchronizing updated `SKILL.md` to agent directories.
-3. **CLI Scripts & Tooling**: Updating binary shims and system schedulers.
-4. **Configuration**: Injecting new configuration keys without overwriting user settings.
-
-Fresh installs in `1.0.0rc3` record `001_1_0_0rc3_baseline` in `schema_migrations` and exit cleanly.
-
----
-
 ## 📄 License
 
-MIT © [developer88](https://github.com/developer88)
+MIT © [Andrey Eremin (developer88)](https://github.com/developer88)

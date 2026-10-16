@@ -160,5 +160,62 @@ Generated at: 2026-10-15T02:00:00Z
             content = f.read()
         self.assertNotIn("Unconsolidated fact", content)
 
+    def test_max_experience_words_configuration_and_override(self):
+        conn = get_connection(config.DB_PATH)
+        insert_fact(MemoryFact(category=FactCategory.USER_PREFERENCE, rule_statement="Sample rule"), conn=conn)
+        conn.close()
+
+        consolidator = InterdayConsolidator()
+
+        # 1. Default (1200)
+        sys_prompt, _, meta = consolidator.build_consolidation_prompt()
+        self.assertEqual(meta["max_words"], 1200)
+        self.assertIn("under 1200 words", sys_prompt)
+
+        # 2. Config file override (600)
+        config.CONFIG_FILE = self.test_path / "config.json"
+        config.save_config({"max_experience_words": 600})
+        sys_prompt_cfg, _, meta_cfg = consolidator.build_consolidation_prompt()
+        self.assertEqual(meta_cfg["max_words"], 600)
+        self.assertIn("under 600 words", sys_prompt_cfg)
+
+        # 3. CLI argument override (400)
+        sys_prompt_arg, _, meta_arg = consolidator.build_consolidation_prompt(max_words=400)
+        self.assertEqual(meta_arg["max_words"], 400)
+        self.assertIn("under 400 words", sys_prompt_arg)
+
+        # 4. Render truncation
+        rendered = render_active_experience_markdown(max_words=5)
+        self.assertLessEqual(len(rendered.split()), 5)
+
+    def test_consolidation_prompt_template_customization(self):
+        from src.consolidator.prompt_template import get_consolidation_template, DEFAULT_CONSOLIDATION_TEMPLATE
+
+        # 1. Default fallback
+        tmpl_default = get_consolidation_template(home_dir=self.test_path)
+        self.assertEqual(tmpl_default, DEFAULT_CONSOLIDATION_TEMPLATE)
+
+        # 2. User home template file (~/.experienced-llms/consolidation_prompt.txt)
+        user_prompt_file = config.EXPERIENCED_HOME / "consolidation_prompt.txt"
+        user_prompt_file.write_text("CUSTOM USER PROMPT TEMPLATE {max_words}", encoding="utf-8")
+        tmpl_user = get_consolidation_template(home_dir=config.EXPERIENCED_HOME)
+        self.assertIn("CUSTOM USER PROMPT TEMPLATE", tmpl_user)
+
+        # 3. Explicit custom_path override
+        custom_file = self.test_path / "explicit_template.txt"
+        custom_file.write_text("EXPLICIT OVERRIDE TEMPLATE {max_words}", encoding="utf-8")
+        tmpl_explicit = get_consolidation_template(custom_path=custom_file, home_dir=config.EXPERIENCED_HOME)
+        self.assertIn("EXPLICIT OVERRIDE TEMPLATE", tmpl_explicit)
+
+        # 4. In InterdayConsolidator.build_consolidation_prompt with template_path
+        conn = get_connection(config.DB_PATH)
+        insert_fact(MemoryFact(category=FactCategory.USER_PREFERENCE, rule_statement="Sample"), conn=conn)
+        conn.close()
+
+        consolidator = InterdayConsolidator()
+        sys_prompt, _, _ = consolidator.build_consolidation_prompt(template_path=custom_file, max_words=500)
+        self.assertEqual(sys_prompt, "EXPLICIT OVERRIDE TEMPLATE 500")
+
 if __name__ == "__main__":
     unittest.main()
+
