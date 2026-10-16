@@ -37,10 +37,10 @@ class TestExperiencedLLMsPipeline(unittest.TestCase):
         table_names = [r["name"] for r in tables]
         conn.close()
 
+        self.assertIn("schema_migrations", table_names)
         self.assertIn("sessions", table_names)
         self.assertIn("memory_facts", table_names)
-        self.assertIn("skills", table_names)
-        self.assertIn("daily_consolidations", table_names)
+        self.assertIn("consolidations", table_names)
 
     def test_session_extraction(self):
         mock_response = """{

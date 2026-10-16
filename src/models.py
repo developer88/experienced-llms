@@ -24,6 +24,7 @@ class MemoryFact:
     scope: str = "global"
     confidence: float = 1.0
     status: FactStatus = FactStatus.ACTIVE
+    is_consolidated: int = 0
     superseded_by: Optional[int] = None
     session_id: Optional[str] = None
     id: Optional[int] = None
