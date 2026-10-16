@@ -6,6 +6,23 @@
 
 ---
 
+## 🚀 One-Command Pre-Release Verification
+
+Before tagging or publishing any release, execute the master pre-release integration runner locally:
+
+```bash
+# In Linux, macOS, or WSL:
+python3 scripts/run_all_tests.py
+```
+
+This single command automatically validates all 4 quality gates in < 15 seconds with **zero host pollution**:
+1. **Source Syntax & Compilation**: Verifies all Python source and test files.
+2. **Hermetic Unit Test Suite**: Runs all 35+ unit tests using isolated in-memory/temp state.
+3. **Sandbox Integration Acceptance**: Executes `install.sh`, tests CLI wrappers, SQLite database schemas/migrations, and verifies the strict 2-file privacy guarantee (zero raw day files, zero dotfiles).
+4. **E2E Synthetic Consolidation**: Tests multi-day contradiction resolution and markdown generation (using `gemini-3.8-flash-low` if `agy` is present, or mock LLM).
+
+---
+
 ## 1. Fast Unit Tests (Hermetic)
 
 The unit test suite uses `tempfile.TemporaryDirectory()` and mocked LLM providers to ensure 100% isolation from the developer's live memory:
