@@ -18,10 +18,11 @@ if ! command -v python3 &> /dev/null; then
 fi
 echo "[+] Python 3 detected: $(python3 --version)"
 
-# 2. Initialize directories and database
+# 2. Initialize directories and database via migration runner
 echo "[+] Initializing Experienced LLMs storage at ${EXPERIENCED_HOME}..."
 mkdir -p "${EXPERIENCED_HOME}"
-python3 -c "import sys; sys.path.insert(0, '${SCRIPT_DIR}'); from src.config import ensure_directories; ensure_directories(); from src.db import init_db; init_db()"
+python3 -c "import sys; sys.path.insert(0, '${SCRIPT_DIR}'); from src.migration_runner import run_migrations; run_migrations()"
+
 
 # 3. Install CLI wrapper to ~/.local/bin
 mkdir -p "${BIN_DIR}"

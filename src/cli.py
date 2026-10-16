@@ -69,6 +69,9 @@ def main():
     integ_parser.add_argument("--target", "-t", type=str, default="all", choices=["antigravity", "claude", "copilot", "cursor", "pi", "all"])
     integ_parser.add_argument("--workspace", "-w", type=str, default=None, help="Target workspace path (defaults to current directory)")
 
+    # 9. migrate (run full-stack migrations)
+    subparsers.add_parser("migrate", help="Run pending full-stack migrations across database, skills, and configuration")
+
     # Legacy subcommands (init, extract, compile-skills, show-context)
     subparsers.add_parser("init", help="Initialize SQLite schema and directories")
     ext_parser = subparsers.add_parser("extract", help="Extract facts from a session transcript file")
@@ -85,8 +88,19 @@ def main():
 
     # Dispatching
     if args.command == "init":
-        init_db(config.DB_PATH)
+        from src.migration_runner import run_migrations
+        run_migrations()
         print(f"Initialized Experienced LLMs at: {config.EXPERIENCED_HOME}")
+
+    elif args.command == "migrate":
+        from src.migration_runner import run_migrations, BASELINE_VERSION
+        is_fresh, applied = run_migrations()
+        if is_fresh:
+            print(f"[+] Fresh installation detected. Initialized baseline: {BASELINE_VERSION}")
+        elif applied:
+            print(f"[✓] Successfully applied {len(applied)} migration(s): {', '.join(applied)}")
+        else:
+            print("[✓] All migrations up to date. Zero pending migrations.")
 
     elif args.command == "log":
         fact = log_intraday(

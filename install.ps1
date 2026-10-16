@@ -20,7 +20,7 @@ try {
 
 if ($hasWindowsPython) {
     Write-Host "[+] Native Windows Python 3 detected." -ForegroundColor Green
-    & python -c "import sys; sys.path.insert(0, r'$ScriptDir'); from src.config import ensure_directories; ensure_directories(); from src.db import init_db; init_db()"
+    & python -c "import sys; sys.path.insert(0, r'$ScriptDir'); from src.migration_runner import run_migrations; run_migrations()"
 
     # Register Windows Task Scheduler
     Write-Host "[+] Registering Windows Task Scheduler nightly consolidation..." -ForegroundColor Green
@@ -81,7 +81,7 @@ if ($hasWindowsPython) {
         if (-not (Test-Path $SkillDir)) {
             New-Item -ItemType Directory -Path $SkillDir -Force | Out-Null
         }
-        Copy-Item -Path (Join-Path $ScriptDir "skill\SKILL.md") -Destination (Join-Path $SkillDir "SKILL.md") -Force
+        Copy-Item -Path (Join-Path $ScriptDir "skills\experienced-llm\SKILL.md") -Destination (Join-Path $SkillDir "SKILL.md") -Force
         Write-Host "[+] Antigravity skill installed: $SkillDir\SKILL.md" -ForegroundColor Green
     }
 }

@@ -22,6 +22,11 @@ def get_connection(db_path: Optional[Path] = None) -> sqlite3.Connection:
 def init_db(db_path: Optional[Path] = None):
     config.ensure_directories()
     conn = get_connection(db_path)
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(memory_facts)").fetchall()]
+    if cols and "is_consolidated" not in cols:
+        conn.execute("ALTER TABLE memory_facts ADD COLUMN is_consolidated INTEGER DEFAULT 0")
+        conn.commit()
+
     schema_path = config.BASE_DIR / "schema.sql"
     with open(schema_path, "r", encoding="utf-8") as f:
         conn.executescript(f.read())
