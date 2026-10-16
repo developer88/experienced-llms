@@ -45,7 +45,7 @@ def run_isolated_acceptance():
         # 2. Initialize
         print("[+] Initializing sandbox directories and SQLite...")
         config.ensure_directories()
-        from src.db import init_db, get_active_facts
+        from src.db import init_db, get_active_facts, get_connection
         init_db(config.DB_PATH)
 
         # 3. Test Intraday Logger
@@ -60,16 +60,27 @@ def run_isolated_acceptance():
         assert fact.id is not None, "Failed to insert fact into sandbox database"
         print(f"[+] Recorded fact #{fact.id}: {fact.rule_statement}")
 
-        # 4. Verify raw day file was created
-        raw_files = list(config.RAW_DAYS_DIR.glob("*.md"))
-        assert len(raw_files) == 1, f"Expected 1 raw day file, got {len(raw_files)}"
-        print(f"[+] Verified raw day log at {raw_files[0]}")
+        # 4. Verify 2-file privacy guarantee: SQLite contains fact, zero raw markdown log files
+        conn = get_connection(config.DB_PATH)
+        row = conn.execute("SELECT id, rule_statement, is_consolidated FROM memory_facts WHERE id = ?", (fact.id,)).fetchone()
+        conn.close()
+        assert row is not None, "Fact was not stored in SQLite"
+        assert row["is_consolidated"] == 0, "Fact should be pending consolidation"
+        assert not list(config.RAW_DAYS_DIR.glob("*.md")), "Privacy violation: raw_days markdown logs found!"
+        print("[+] Verified fact stored in SQLite and zero raw day markdown logs created (2-file containment).")
 
         # 5. Test Interday Consolidation
         print("[+] Testing interday consolidator in sandbox...")
         from src.llm_client import MockLLMClient
         from src.consolidator.interday_consolidator import InterdayConsolidator
-        consolidator = InterdayConsolidator(MockLLMClient())
+        import json
+        mock_response = json.dumps({
+            "updated_experience_markdown": "# Master AI Experience\n\n## 2. Defensive Safeguards & Heuristics\n- Always run isolated acceptance tests in a disposable directory.",
+            "processed_pending_ids": [fact.id],
+            "superseded_fact_ids": [],
+            "summary_of_changes": "Consolidated sandbox acceptance test fact."
+        })
+        consolidator = InterdayConsolidator(MockLLMClient(response_text=mock_response))
         out_path, summary = consolidator.consolidate("2026-09-27")
 
         assert out_path.exists(), "Master experience file not generated"

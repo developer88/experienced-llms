@@ -56,9 +56,17 @@ if ! echo "${STATUS_OUTPUT}" | grep -q "Always run isolated tests"; then
 fi
 echo "[+] Verified fact recorded into sandbox SQLite database."
 
-# 5. Test interday consolidation
+# 5. Test interday consolidation (Pathway A with mock LLM and Pathway B prepare)
 echo "[+] Step 3: Testing consolidation pass in sandbox..."
-"${CLI_BIN}" consolidate
+"${CLI_BIN}" consolidate --prepare > "${SANDBOX_DIR}/prepare_payload.json"
+if ! grep -q "Always run isolated tests" "${SANDBOX_DIR}/prepare_payload.json"; then
+    echo "[-] Error: consolidate --prepare payload missing test fact!"
+    exit 1
+fi
+echo "[+] Verified consolidate --prepare outputs valid prompt payload."
+
+MOCK_CLI="python3 -c 'import sys, json; sys.stdout.write(json.dumps({\"updated_experience_markdown\": \"# Master AI Experience\\n\\n## 2. Defensive Safeguards & Heuristics\\n- Always run isolated tests in temporary sandbox\", \"processed_pending_ids\": [1], \"superseded_fact_ids\": [], \"summary_of_changes\": \"Consolidated sandbox test rule.\"}))'"
+"${CLI_BIN}" consolidate --llm "${MOCK_CLI}"
 
 EXP_CONTENT="$(cat "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md")"
 if ! echo "${EXP_CONTENT}" | grep -q "Always run isolated tests"; then
