@@ -111,6 +111,8 @@ pub struct Config {
     pub schedule_time: String,
     #[serde(default = "default_max_experience_words")]
     pub max_experience_words: usize,
+    #[serde(default)]
+    pub external_llm_cmd: Option<String>,
 }
 
 fn default_provider() -> String {
@@ -164,6 +166,7 @@ impl Default for Config {
             ollama_model: env::var("OLLAMA_MODEL").unwrap_or_else(|_| default_ollama_model()),
             schedule_time: default_schedule_time(),
             max_experience_words: default_max_experience_words(),
+            external_llm_cmd: env::var("EXPERIENCED_LLMS_EXTERNAL_CMD").ok().filter(|s| !s.trim().is_empty()),
         }
     }
 }

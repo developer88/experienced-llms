@@ -1,11 +1,13 @@
 use clap::{Parser, Subcommand};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::config;
+use crate::consolidator;
 use crate::db;
 use crate::intraday;
+use crate::llm_client;
 use crate::models::FactCategory;
 use crate::renderer;
 
@@ -384,42 +386,77 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Commands::Consolidate {
-            date: _,
-            provider: _,
-            llm: _,
+            date,
+            provider,
+            llm,
             prepare,
             apply,
             max_words,
-            template: _,
+            template,
         } => {
+            let template_path = template.as_deref().map(Path::new);
+
+            // Pathway B - Step 1: --prepare
             if prepare {
                 let conn = db::get_connection(None)?;
-                let active = db::get_active_facts(&conn, None)?;
-                let pending = db::get_pending_facts(&conn, None)?;
-                let payload = serde_json::json!({
-                    "metadata": {
-                        "status": "ready",
-                        "max_words": max_words.unwrap_or(1200),
-                        "active_facts_count": active.len(),
-                        "pending_facts_count": pending.len(),
-                        "pending_fact_ids": pending.iter().filter_map(|f| f.id).collect::<Vec<_>>()
-                    },
-                    "system_prompt": "Consolidation system instructions",
-                    "user_prompt": format!("Active: {}\nPending: {}", active.len(), pending.len())
-                });
+                let consolidator = consolidator::InterdayConsolidator::new(None);
+                let (sys_opt, user_opt, metadata) = consolidator.build_consolidation_prompt(
+                    &conn,
+                    date.as_deref(),
+                    max_words,
+                    template_path,
+                )?;
+
+                let payload = consolidator::ConsolidationPreparePayload {
+                    metadata,
+                    system_prompt: sys_opt.unwrap_or_default(),
+                    user_prompt: user_opt.unwrap_or_default(),
+                };
                 println!("{}", serde_json::to_string_pretty(&payload)?);
                 return Ok(());
             }
 
+            // Pathway B - Step 3: --apply
             if let Some(apply_payload) = apply {
-                println!("[✓] Consolidation applied successfully: {}", apply_payload);
+                let mut conn = db::get_connection(None)?;
+                let consolidator = consolidator::InterdayConsolidator::new(None);
+                let (master_path, summary) = consolidator.apply_consolidation_result(
+                    &mut conn,
+                    &apply_payload,
+                    "agent_skill",
+                )?;
+                println!("[✓] Consolidation applied successfully: {}", master_path.display());
+                println!("[✓] Summary: {}", summary);
                 return Ok(());
             }
 
-            // Fallback to rendering if no live LLM client attached yet
-            let limit = max_words.or_else(|| Some(config::load_config().max_experience_words));
-            let (count, _) = renderer::rebuild_master_experience(None, limit)?;
-            println!("[✓] Consolidation pass completed: {} active facts rendered to EXPERIENCE.md", count);
+            // Pathway A: Tooling / CLI / Scheduler Driven
+            let client = match llm_client::get_llm_client(provider.as_deref(), llm.as_deref()) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("[-] Consolidation aborted without mutating facts: {}", e);
+                    std::process::exit(1);
+                }
+            };
+
+            let consolidator = consolidator::InterdayConsolidator::new(Some(client));
+            let engine_type = if llm.is_some() { "cli_external_cmd" } else { "api_client" };
+            match consolidator.consolidate(
+                date.as_deref(),
+                max_words,
+                template_path,
+                Some(engine_type),
+                None,
+            ) {
+                Ok((master_path, summary)) => {
+                    println!("[✓] Consolidation complete: {}", master_path.display());
+                    println!("[✓] Summary: {}", summary);
+                }
+                Err(e) => {
+                    eprintln!("[-] Consolidation aborted without mutating facts: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
 
         Commands::Schedule {

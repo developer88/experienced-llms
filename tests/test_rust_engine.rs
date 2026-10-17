@@ -1,5 +1,6 @@
 use experienced_llms::config::Config;
 use experienced_llms::db;
+use experienced_llms::llm_client::LLMClient;
 use experienced_llms::models::{
     ConsolidationAudit, FactCategory, FactStatus, MemoryFact, SkillFile,
 };
@@ -444,5 +445,324 @@ fn test_cli_subcommands_sandbox() {
     let show_str = String::from_utf8_lossy(&show_out.stdout);
     assert!(show_str.contains("# Master AI Experience"));
     assert!(show_str.contains("Always test CLI commands"));
+}
+
+#[test]
+fn test_prompt_template_resolution_and_hierarchy() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home_path = dir.path().to_path_buf();
+
+    // 1. Default fallback
+    let default_tmpl = experienced_llms::consolidator::prompt_template::get_consolidation_template(
+        None,
+        Some(&home_path),
+    );
+    assert!(default_tmpl.contains("You are the master cognitive consolidation engine"));
+    assert!(default_tmpl.contains("## 1. User Directives & Preferences"));
+    assert!(default_tmpl.contains("## 2. Defensive Safeguards & Heuristics"));
+    assert!(default_tmpl.contains("## 3. Project-Specific Constraints"));
+    assert!(default_tmpl.contains("## 4. Anti-Patterns & Critical Gotchas"));
+    assert!(default_tmpl.contains("## 5. Mistake Corrections & Fixes"));
+    assert!(default_tmpl.contains("{max_words}"));
+
+    // 2. User home directory override: ~/.experienced-llms/consolidation_prompt.txt
+    let home_file = home_path.join("consolidation_prompt.txt");
+    fs::write(&home_file, "HOME PROMPT TEMPLATE {max_words}").expect("Failed to write home template");
+
+    let home_tmpl = experienced_llms::consolidator::prompt_template::get_consolidation_template(
+        None,
+        Some(&home_path),
+    );
+    assert_eq!(home_tmpl, "HOME PROMPT TEMPLATE {max_words}");
+
+    // 3. Explicit custom path override (--template)
+    let custom_file = home_path.join("custom_template.txt");
+    fs::write(&custom_file, "EXPLICIT TEMPLATE {max_words}").expect("Failed to write custom template");
+
+    let explicit_tmpl = experienced_llms::consolidator::prompt_template::get_consolidation_template(
+        Some(&custom_file),
+        Some(&home_path),
+    );
+    assert_eq!(explicit_tmpl, "EXPLICIT TEMPLATE {max_words}");
+}
+
+#[test]
+fn test_external_command_llm_client() {
+    #[cfg(not(windows))]
+    let mock_cmd = r##"echo '{"updated_experience_markdown": "# Mock Title\n- rule 1", "summary_of_changes": "Mocked", "processed_pending_ids": [], "superseded_fact_ids": []}'"##;
+
+    #[cfg(windows)]
+    let mock_cmd = r##"echo {"updated_experience_markdown": "# Mock Title\n- rule 1", "summary_of_changes": "Mocked", "processed_pending_ids": [], "superseded_fact_ids": []}"##;
+
+    let client = experienced_llms::llm_client::ExternalCommandLLMClient::new(mock_cmd)
+        .expect("Failed to create client");
+    let resp = client
+        .generate("System prompt", "User prompt", true)
+        .expect("Failed to generate");
+    assert!(resp.contains("Mock Title"));
+
+    // Test failure handling with failing exit code
+    #[cfg(not(windows))]
+    let fail_cmd = "sh -c 'echo \"Fatal LLM failure\" >&2; exit 2'";
+
+    #[cfg(windows)]
+    let fail_cmd = "cmd /C echo Fatal LLM failure 1>&2 & exit 2";
+
+    let fail_client = experienced_llms::llm_client::ExternalCommandLLMClient::new(fail_cmd)
+        .expect("Failed to create fail client");
+    let err = fail_client.generate("sys", "user", false);
+    assert!(err.is_err());
+    let err_msg = err.unwrap_err().to_string();
+    assert!(err_msg.contains("Fatal LLM failure") || err_msg.contains("External LLM command failed"));
+}
+
+#[test]
+fn test_consolidator_engine_full_lifecycle() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home_path = dir.path().to_path_buf();
+    let db_path = home_path.join("memory.db");
+
+    let mut conn = db::init_db(Some(&db_path)).expect("Failed to init db");
+
+    // Insert active fact f1
+    let f1_id = db::insert_fact(
+        &conn,
+        &MemoryFact::new(FactCategory::UserPreference, "Old rule to supersede"),
+    )
+    .expect("Failed to insert f1");
+    // Mark f1 consolidated
+    conn.execute(
+        "UPDATE memory_facts SET is_consolidated = 1 WHERE id = ?",
+        rusqlite::params![f1_id],
+    )
+    .expect("Failed to update f1");
+
+    // Insert pending fact f2
+    let f2_id = db::insert_fact(
+        &conn,
+        &MemoryFact::new(FactCategory::UserPreference, "New pending rule to integrate"),
+    )
+    .expect("Failed to insert f2");
+
+    let consolidator = experienced_llms::consolidator::InterdayConsolidator::with_home(None, Some(home_path.clone()));
+
+    // 1. Test build_consolidation_prompt
+    let (sys_opt, user_opt, meta) = consolidator
+        .build_consolidation_prompt(&conn, Some("2026-10-17"), Some(800), None)
+        .expect("Failed to build prompt");
+
+    assert!(sys_opt.is_some());
+    let sys = sys_opt.unwrap();
+    assert!(sys.contains("under 800 words"));
+
+    assert!(user_opt.is_some());
+    let user = user_opt.unwrap();
+    assert!(user.contains("Old rule to supersede"));
+    assert!(user.contains("New pending rule to integrate"));
+
+    assert_eq!(meta.active_facts_count, 2);
+    assert_eq!(meta.pending_facts_count, 1);
+    assert_eq!(meta.pending_fact_ids, vec![f2_id]);
+
+    // 2. Test apply_consolidation_result
+    let payload = serde_json::json!({
+        "updated_experience_markdown": "# Master AI Experience\n<!-- comment -->\nGenerated at: 2026-10-17\n\n## 1. User Directives & Preferences\n- New pending rule to integrate",
+        "processed_pending_ids": [f2_id],
+        "superseded_fact_ids": [f1_id],
+        "summary_of_changes": "Superseded old rule and applied new rule."
+    });
+
+    let (master_path, summary) = consolidator
+        .apply_consolidation_result(&mut conn, &payload.to_string(), "test_engine")
+        .expect("Failed to apply consolidation result");
+
+    assert_eq!(summary, "Superseded old rule and applied new rule.");
+    assert!(master_path.exists());
+
+    // Check clean markdown in EXPERIENCE.md
+    let md_content = fs::read_to_string(&master_path).expect("Failed to read master experience");
+    assert!(md_content.contains("# Master AI Experience"));
+    assert!(md_content.contains("- New pending rule to integrate"));
+    assert!(!md_content.contains("<!-- comment -->"));
+    assert!(!md_content.contains("Generated at:"));
+
+    // Verify SQLite states
+    let mut stmt = conn
+        .prepare("SELECT status, is_consolidated FROM memory_facts WHERE id = ?")
+        .expect("Failed to prepare stmt");
+
+    let f1_row: (String, i64) = stmt
+        .query_row(rusqlite::params![f1_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .expect("Failed to get f1");
+    assert_eq!(f1_row.0, "superseded");
+
+    let f2_row: (String, i64) = stmt
+        .query_row(rusqlite::params![f2_id], |r| Ok((r.get(0)?, r.get(1)?)))
+        .expect("Failed to get f2");
+    assert_eq!(f2_row.1, 1); // marked consolidated
+
+    // Verify audit record in consolidations table
+    let audit_count: i64 = conn
+        .query_row("SELECT count(*) FROM consolidations WHERE engine_type = 'test_engine'", [], |r| r.get(0))
+        .expect("Failed to get audit count");
+    assert_eq!(audit_count, 1);
+}
+
+#[test]
+fn test_consolidate_pathway_a_mock_and_abort_resilience() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home_path = dir.path().to_path_buf();
+    let db_path = home_path.join("memory.db");
+
+    let conn = db::init_db(Some(&db_path)).expect("Failed to init db");
+
+    let f1_id = db::insert_fact(
+        &conn,
+        &MemoryFact::new(FactCategory::UserPreference, "Resilience test fact"),
+    )
+    .expect("Failed to insert fact");
+
+    // 1. Test fail-safe abort with failing client (empty response)
+    let failing_mock = experienced_llms::llm_client::MockLLMClient::new("");
+    let failing_consolidator = experienced_llms::consolidator::InterdayConsolidator::with_home(
+        Some(Box::new(failing_mock)),
+        Some(home_path.clone()),
+    );
+
+    let result = failing_consolidator.consolidate(None, None, None, None, Some(&db_path));
+    assert!(result.is_err(), "Consolidator must abort if LLM returns empty output");
+
+    // Verify fact was NOT consolidated and no audit was written
+    let f1_status: (String, i64) = conn
+        .query_row(
+            "SELECT status, is_consolidated FROM memory_facts WHERE id = ?",
+            rusqlite::params![f1_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .expect("Failed to query fact");
+    assert_eq!(f1_status.0, "active");
+    assert_eq!(f1_status.1, 0);
+
+    let audits: i64 = conn
+        .query_row("SELECT count(*) FROM consolidations", [], |r| r.get(0))
+        .expect("Failed to query audits");
+    assert_eq!(audits, 0);
+
+    // 2. Test successful consolidation pass with Mock client
+    let valid_response = serde_json::json!({
+        "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n- Integrated resilience fact",
+        "processed_pending_ids": [f1_id],
+        "superseded_fact_ids": [],
+        "summary_of_changes": "Mock consolidation success"
+    });
+
+    let success_mock = experienced_llms::llm_client::MockLLMClient::new(valid_response.to_string());
+    let success_consolidator = experienced_llms::consolidator::InterdayConsolidator::with_home(
+        Some(Box::new(success_mock)),
+        Some(home_path.clone()),
+    );
+
+    let (master_path, summary) = success_consolidator
+        .consolidate(None, None, None, Some("mock_test"), Some(&db_path))
+        .expect("Consolidation should succeed");
+
+    assert_eq!(summary, "Mock consolidation success");
+    assert!(master_path.exists());
+
+    let final_status: i64 = conn
+        .query_row(
+            "SELECT is_consolidated FROM memory_facts WHERE id = ?",
+            rusqlite::params![f1_id],
+            |r| r.get(0),
+        )
+        .expect("Failed to query fact final status");
+    assert_eq!(final_status, 1);
+}
+
+#[test]
+fn test_cli_consolidate_prepare_and_apply() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home_path = dir.path().to_path_buf();
+    let exe = env!("CARGO_BIN_EXE_experienced-llms");
+
+    // 1. Init
+    let init_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .arg("init")
+        .output()
+        .expect("Failed to run init");
+    assert!(init_out.status.success());
+
+    // 2. Log facts
+    let log1 = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["log", "First test rule for consolidation", "--category", "user_preference"])
+        .output()
+        .expect("Failed to log 1");
+    assert!(log1.status.success());
+
+    let log2 = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["log", "Second test rule for consolidation", "--category", "defensive_heuristic"])
+        .output()
+        .expect("Failed to log 2");
+    assert!(log2.status.success());
+
+    // 3. Test consolidate --prepare
+    let prepare_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["consolidate", "--prepare"])
+        .output()
+        .expect("Failed to run consolidate --prepare");
+    assert!(prepare_out.status.success());
+
+    let prepare_json = String::from_utf8_lossy(&prepare_out.stdout);
+    assert!(prepare_json.contains("\"metadata\""));
+    assert!(prepare_json.contains("\"system_prompt\""));
+    assert!(prepare_json.contains("\"user_prompt\""));
+    assert!(prepare_json.contains("First test rule for consolidation"));
+    assert!(prepare_json.contains("Second test rule for consolidation"));
+
+    // 4. Test consolidate --template <path> --prepare
+    let custom_tmpl_file = home_path.join("custom_prompt.txt");
+    fs::write(&custom_tmpl_file, "SPECIAL CLI TEMPLATE {max_words}").expect("Failed to write custom template");
+
+    let prepare_custom = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["consolidate", "--template", custom_tmpl_file.to_str().unwrap(), "--prepare"])
+        .output()
+        .expect("Failed to run consolidate with custom template");
+    assert!(prepare_custom.status.success());
+    let custom_json = String::from_utf8_lossy(&prepare_custom.stdout);
+    assert!(custom_json.contains("SPECIAL CLI TEMPLATE 1200"));
+
+    // 5. Test consolidate --apply '<payload>'
+    let apply_payload = serde_json::json!({
+        "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n- Consolidated via CLI test\n\n## 2. Defensive Safeguards & Heuristics\n- Defensive safeguard",
+        "processed_pending_ids": [1, 2],
+        "superseded_fact_ids": [],
+        "summary_of_changes": "Applied via CLI test sandbox"
+    });
+
+    let apply_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["consolidate", "--apply", &apply_payload.to_string()])
+        .output()
+        .expect("Failed to run consolidate --apply");
+    assert!(apply_out.status.success());
+    let apply_str = String::from_utf8_lossy(&apply_out.stdout);
+    assert!(apply_str.contains("[✓] Consolidation applied successfully"));
+    assert!(apply_str.contains("Applied via CLI test sandbox"));
+
+    // 6. Test show displays the updated EXPERIENCE.md
+    let show_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .arg("show")
+        .output()
+        .expect("Failed to run show");
+    assert!(show_out.status.success());
+    let show_str = String::from_utf8_lossy(&show_out.stdout);
+    assert!(show_str.contains("Consolidated via CLI test"));
+    assert!(show_str.contains("Defensive safeguard"));
 }
 

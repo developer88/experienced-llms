@@ -23,6 +23,7 @@ clap = { version = "4.5", features = ["derive"] }
 dirs = "5.0"
 regex = "1.10"
 chrono = { version = "0.4", features = ["serde"] }
+ureq = { version = "2.10", features = ["json", "tls"] }
 
 [dev-dependencies]
 tempfile = "3.10"
