@@ -1,0 +1,28 @@
+[package]
+name = "experienced-llms"
+version = "1.0.0-rc.3"
+edition = "2021"
+authors = ["Andrey Eremin <andrey.eremin.de@gmail.com>"]
+description = "Autonomous memory & operational wisdom engine for AI coding agents"
+readme = "README.md"
+license = "MIT"
+
+[lib]
+name = "experienced_llms"
+path = "src/lib.rs"
+
+[[bin]]
+name = "experienced-llms"
+path = "src/main.rs"
+
+[dependencies]
+rusqlite = { version = "0.31", features = ["bundled", "backup"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+dirs = "5.0"
+regex = "1.10"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.10"

@@ -72,6 +72,19 @@ def main():
     if not results["Synthetic Consolidation"]:
         sys.exit(1)
 
+    # 5. Rust Engine Test Suite (if cargo is present)
+    cargo_path = shutil.which("cargo")
+    if not cargo_path:
+        default_cargo = Path.home() / ".cargo" / "bin" / "cargo"
+        if default_cargo.exists():
+            cargo_path = str(default_cargo)
+
+    if cargo_path and (REPO_ROOT / "Cargo.toml").exists():
+        rust_cmd = [cargo_path, "test"]
+        results["Rust Engine Tests"] = run_step("Rust Engine Test Suite (rusqlite, WAL, bidirectional compat)", rust_cmd)
+        if not results["Rust Engine Tests"]:
+            sys.exit(1)
+
     # Summary
     print("\n" + "=" * 65)
     print("   PRE-RELEASE LOCAL VERIFICATION SUMMARY")
