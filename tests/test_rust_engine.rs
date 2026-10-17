@@ -331,3 +331,118 @@ print("PYTHON_VERIFIED_OK")
     let stdout = String::from_utf8_lossy(&verify_res.stdout);
     assert!(stdout.contains("PYTHON_VERIFIED_OK"), "Python failed to read Rust mutations: {}", String::from_utf8_lossy(&verify_res.stderr));
 }
+
+#[test]
+fn test_intraday_logging() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let db_path = dir.path().join("intraday_test.db");
+
+    let conn = db::init_db(Some(&db_path)).expect("Failed to init db");
+
+    let fact = experienced_llms::intraday::log_intraday(
+        "Never run npm directly on Windows; always run inside WSL.",
+        FactCategory::UserPreference,
+        Some("global"),
+        Some("Windows path collisions"),
+        Some("session-xyz"),
+        Some(&db_path),
+    ).expect("Failed to log intraday");
+
+    assert_eq!(fact.id, Some(1));
+    assert_eq!(fact.is_consolidated, 0);
+    assert_eq!(fact.status, FactStatus::Active);
+
+    let pending = db::get_pending_facts(&conn, None).expect("Failed to get pending");
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].rule_statement, "Never run npm directly on Windows; always run inside WSL.");
+}
+
+#[test]
+fn test_renderer_clean_and_truncate() {
+    // 1. Test clean_markdown_experience
+    let dirty_md = r#"# Master AI Experience
+<!-- internal consolidation note -->
+Last consolidated: 2026-10-17 02:00:00
+
+## 1. User Directives & Preferences
+- Rule A
+
+Generated at 2026-10-17
+"#;
+    let cleaned = experienced_llms::renderer::clean_markdown_experience(dirty_md);
+    assert!(!cleaned.contains("<!--"));
+    assert!(!cleaned.contains("Last consolidated"));
+    assert!(!cleaned.contains("Generated at"));
+    assert!(cleaned.contains("## 1. User Directives & Preferences"));
+    assert!(cleaned.contains("- Rule A"));
+
+    // 2. Test render_active_experience_markdown deduplication and word limit
+    let f1 = MemoryFact::new(FactCategory::UserPreference, "Rule 1");
+    let f2 = MemoryFact::new(FactCategory::UserPreference, "Rule 1"); // Duplicate
+    let f3 = MemoryFact::new(FactCategory::DefensiveHeuristic, "Rule 2");
+
+    let rendered = experienced_llms::renderer::render_active_experience_markdown(&[f1.clone(), f2, f3.clone()], None);
+    assert_eq!(rendered.matches("Rule 1").count(), 1, "Duplicate rule should be deduplicated");
+
+    let truncated = experienced_llms::renderer::render_active_experience_markdown(&[f1, f3], Some(10));
+    let word_count = truncated.split_whitespace().count();
+    assert!(word_count <= 10, "Rendered markdown should be truncated to max_words");
+}
+
+#[test]
+fn test_cli_subcommands_sandbox() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home_dir = dir.path().to_path_buf();
+
+    // Test running binary via Command
+    let exe = env!("CARGO_BIN_EXE_experienced-llms");
+
+    // 1. Init
+    let init_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_dir)
+        .arg("init")
+        .output()
+        .expect("Failed to run init");
+    assert!(init_out.status.success());
+
+    // 2. Log
+    let log_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_dir)
+        .args(["log", "Always test CLI commands", "--category", "defensive_heuristic", "--scope", "testing"])
+        .output()
+        .expect("Failed to run log");
+    assert!(log_out.status.success());
+    let log_str = String::from_utf8_lossy(&log_out.stdout);
+    assert!(log_str.contains("Logged [DEFENSIVE_HEURISTIC] (testing): Always test CLI commands"));
+
+    // 3. Status
+    let status_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_dir)
+        .arg("status")
+        .output()
+        .expect("Failed to run status");
+    assert!(status_out.status.success());
+    let status_str = String::from_utf8_lossy(&status_out.stdout);
+    assert!(status_str.contains("Active Memory Facts"));
+    assert!(status_str.contains("Always test CLI commands"));
+
+    // 4. Render
+    let render_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_dir)
+        .args(["render", "--max-words", "500"])
+        .output()
+        .expect("Failed to run render");
+    assert!(render_out.status.success());
+
+    // 5. Show
+    let show_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_dir)
+        .arg("show")
+        .output()
+        .expect("Failed to run show");
+    assert!(show_out.status.success());
+    let show_str = String::from_utf8_lossy(&show_out.stdout);
+    assert!(show_str.contains("# Master AI Experience"));
+    assert!(show_str.contains("Always test CLI commands"));
+}
+
