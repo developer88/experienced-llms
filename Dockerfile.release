@@ -51,15 +51,19 @@ RUN cargo build --release --target x86_64-unknown-linux-gnu && \
 RUN cargo build --release --target x86_64-pc-windows-gnu && \
     x86_64-w64-mingw32-strip target/x86_64-pc-windows-gnu/release/experienced-llms.exe
 
-# 4. Package distribution archives
+# 4. Package distribution archives and raw standalone binaries
 WORKDIR /dist
 COPY install.sh install.ps1 ./
+
+RUN cp /build/target/x86_64-unknown-linux-musl/release/experienced-llms ./experienced-llms-linux-x86_64-musl
+RUN cp /build/target/x86_64-unknown-linux-gnu/release/experienced-llms ./experienced-llms-linux-x86_64-gnu
+RUN cp /build/target/x86_64-pc-windows-gnu/release/experienced-llms.exe ./experienced-llms-windows-x86_64.exe
 
 RUN tar -czf experienced-llms-x86_64-unknown-linux-musl.tar.gz -C /build/target/x86_64-unknown-linux-musl/release experienced-llms
 RUN tar -czf experienced-llms-x86_64-unknown-linux-gnu.tar.gz -C /build/target/x86_64-unknown-linux-gnu/release experienced-llms
 RUN zip -j experienced-llms-x86_64-pc-windows.zip /build/target/x86_64-pc-windows-gnu/release/experienced-llms.exe
 
 # 5. Generate cryptographic checksums
-RUN sha256sum experienced-llms-*.tar.gz experienced-llms-*.zip install.sh install.ps1 > SHA256SUMS.txt
+RUN sha256sum experienced-llms-* install.sh install.ps1 > SHA256SUMS.txt
 
 CMD ["sh", "-c", "cp -v /dist/* /output/"]

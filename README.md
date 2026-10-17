@@ -65,23 +65,46 @@ Nightly or on demand, consolidation merges pending facts into the active ruleboo
 
 ---
 
-## ⚡ Installation
+## ⚡ Quick Start: 1-Line Terminal Installation
 
-### Linux / macOS / WSL
+No compiler, Python, or multi-step dependency setup required. Copy and paste a single command into your terminal:
+
+### POSIX (Linux, macOS, Ubuntu, Arch, Debian, WSL)
 ```bash
-git clone https://github.com/developer88/experienced-llms.git
-cd experienced-llms
-bash install.sh
+curl -fsSL https://github.com/developer88/experienced-llms/releases/latest/download/install.sh | bash
 ```
 
-### Windows (PowerShell)
+### Windows 11 (PowerShell)
 ```powershell
-git clone https://github.com/developer88/experienced-llms.git
-cd experienced-llms
-.\install.ps1
+irm https://github.com/developer88/experienced-llms/releases/latest/download/install.ps1 | iex
 ```
 
-The installer initializes your local database baseline (`001_1_0_0rc3_baseline`), adds binary wrappers to your PATH (`~/.local/bin/experienced-llms` or `experienced-llms.cmd`), configures agent integrations, and registers a nightly consolidation schedule (02:00 AM).
+The installer automatically:
+1. Detects your operating system and architecture (`x86_64`, `aarch64`, macOS Apple Silicon / Intel, Windows).
+2. Installs the high-performance standalone native Rust binary to `~/.local/bin/` (or Windows user programs directory).
+3. Configures your user profile `PATH` (`.bashrc`, `.zshrc`, or Windows Environment).
+4. Initializes local SQLite storage at `~/.experienced-llms/memory.db`.
+5. Connects agent skills for Antigravity, Claude, Copilot, Cursor, and Pi.
+6. Configures the automated nightly consolidation daemon (cron or Windows Task Scheduler).
+
+---
+
+### Alternative / Offline / Source Installation
+
+If you prefer building from source or working offline:
+
+```bash
+# Clone the repository
+git clone https://github.com/developer88/experienced-llms.git
+cd experienced-llms
+
+# Build and install standalone binary via Cargo
+cargo install --path .
+
+# Or run the local installer script (auto-detects local repository & builds if needed)
+bash install.sh        # On Linux / macOS / WSL
+.\install.ps1          # On Windows PowerShell
+```
 
 ---
 

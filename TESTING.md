@@ -61,22 +61,27 @@ python3 scripts/test_sandbox.py
 
 ---
 
-## 3. Containerized Testing (Docker)
+## 3. Containerized Local Testing (Docker - Zero Cloud Minutes)
 
-For CI pipelines or developers with Docker installed:
+To test the entire release pipeline (installers, standalone Rust binary, unit tests, SQLite persistence, and CLI commands) with **zero host pollution** and **zero GitHub Actions cloud costs**:
 
 ```bash
-# Run automated container build & verification
-bash scripts/test_in_docker.sh
+# Run isolated container test suite (100% hermetic)
+bash scripts/pipeline.sh test
+
+# Build release binaries for Linux (musl & gnu) and Windows locally:
+bash scripts/pipeline.sh build
 ```
 
-Or run directly using Docker CLI:
+---
+
+## 4. Standalone Rust Engine Tests (Cargo)
+
+The Rust native engine includes a hermetic test suite covering all CLI subcommands, database migrations, consolidator algorithms, and cross-language compatibility:
+
 ```bash
-docker build -f Dockerfile.test -t experienced-llms-test .
-docker run --rm experienced-llms-test
+cargo test
 ```
-
-This runs the entire setup inside a clean Ubuntu 24.04 image with fresh Python 3 and cron dependencies.
 
 ---
 
