@@ -1,0 +1,65 @@
+# Multi-Target Release Builder for Experienced LLMs (Zero Cloud Workers)
+# Compiles standalone Linux (musl & gnu) and Windows binaries locally using Docker.
+
+FROM ubuntu:24.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV HOME=/root
+
+# Install build dependencies, musl libc, and mingw-w64 cross compiler
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    build-essential \
+    musl-tools \
+    gcc-mingw-w64-x86-64 \
+    tar \
+    zip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust toolchain
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Add cross-compilation targets
+RUN rustup target add x86_64-unknown-linux-musl
+RUN rustup target add x86_64-unknown-linux-gnu
+RUN rustup target add x86_64-pc-windows-gnu
+
+ENV CC_x86_64_unknown_linux_musl=musl-gcc
+ENV CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc
+
+ENV CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
+ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_AR=x86_64-w64-mingw32-ar
+
+
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY schema.sql ./
+
+# 1. Compile Linux musl static binary
+RUN cargo build --release --target x86_64-unknown-linux-musl && \
+    strip target/x86_64-unknown-linux-musl/release/experienced-llms
+
+# 2. Compile Linux gnu binary
+RUN cargo build --release --target x86_64-unknown-linux-gnu && \
+    strip target/x86_64-unknown-linux-gnu/release/experienced-llms
+
+# 3. Cross-compile Windows binary using mingw-w64
+RUN cargo build --release --target x86_64-pc-windows-gnu && \
+    x86_64-w64-mingw32-strip target/x86_64-pc-windows-gnu/release/experienced-llms.exe
+
+# 4. Package distribution archives
+WORKDIR /dist
+COPY install.sh install.ps1 ./
+
+RUN tar -czf experienced-llms-x86_64-unknown-linux-musl.tar.gz -C /build/target/x86_64-unknown-linux-musl/release experienced-llms
+RUN tar -czf experienced-llms-x86_64-unknown-linux-gnu.tar.gz -C /build/target/x86_64-unknown-linux-gnu/release experienced-llms
+RUN zip -j experienced-llms-x86_64-pc-windows.zip /build/target/x86_64-pc-windows-gnu/release/experienced-llms.exe
+
+# 5. Generate cryptographic checksums
+RUN sha256sum experienced-llms-*.tar.gz experienced-llms-*.zip install.sh install.ps1 > SHA256SUMS.txt
+
+CMD ["sh", "-c", "cp -v /dist/* /output/"]

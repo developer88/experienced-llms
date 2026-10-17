@@ -4,15 +4,20 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/root
 
-# Install runtime dependencies (Python 3, git, cron, curl)
+# Install runtime dependencies (Python 3, build tools, git, cron, curl)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
+    build-essential \
     git \
     cron \
     curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust toolchain for Rust engine tests
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /workspace
 COPY . /workspace
@@ -24,13 +29,17 @@ RUN ./install.sh
 # Run test suite and CLI validation
 CMD ["bash", "-c", "\
     set -e && \
-    echo '=== Running Unit Test Suite ===' && \
-    python3 -m unittest discover -s tests && \
-    echo '=== Testing CLI Logging in Container ===' && \
-    ~/.local/bin/experienced-llms log 'Test container rule' --reason 'Isolation check' --category defensive_heuristic && \
-    echo '=== Testing Consolidator ===' && \
-    ~/.local/bin/experienced-llms consolidate && \
-    echo '=== Checking Master Experience ===' && \
+    echo '===================================================' && \
+    echo '  Experienced LLMs: Docker Container Test Pipeline' && \
+    echo '===================================================' && \
+    python3 scripts/run_all_tests.py && \
+    echo '=== Testing CLI Shims & Intraday Logging in Container ===' && \
+    ~/.local/bin/experienced-llms log 'Isolated Docker test fact' --reason 'Hermetic container verification' --category defensive_heuristic && \
+    echo '=== Testing Consolidator in Container ===' && \
+    ~/.local/bin/experienced-llms consolidate --prepare && \
+    echo '=== Checking Master Experience in Container ===' && \
     ~/.local/bin/experienced-llms show && \
-    echo '[SUCCESS] All isolated container checks passed!'\
+    echo '===================================================' && \
+    echo '[SUCCESS] All isolated Docker container checks passed!' && \
+    echo '==================================================='\
 "]
