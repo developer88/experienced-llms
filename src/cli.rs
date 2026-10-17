@@ -6,10 +6,12 @@ use std::str::FromStr;
 use crate::config;
 use crate::consolidator;
 use crate::db;
+use crate::integrations;
 use crate::intraday;
 use crate::llm_client;
 use crate::models::FactCategory;
 use crate::renderer;
+use crate::scheduler;
 
 #[derive(Parser, Debug)]
 #[command(name = "experienced-llms")]
@@ -259,6 +261,7 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                 "Master Experience: {}",
                 if master_file.exists() { "Exists" } else { "Not yet created" }
             );
+            println!("Schedule: {}", scheduler::get_schedule_status("auto"));
 
             if db_path.exists() {
                 if let Ok(conn) = db::get_connection(Some(&db_path)) {
@@ -352,35 +355,33 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Commands::Integrate { target, workspace } => {
-            let ws = workspace.unwrap_or_else(|| PathBuf::from("."));
-            match target.as_str() {
+            let ws_ref = workspace.as_deref();
+            match target.to_lowercase().as_str() {
                 "antigravity" => {
-                    let skill_path = dirs::home_dir()
-                        .map(|h| h.join(".gemini/config/skills/experienced-llms/SKILL.md"))
-                        .unwrap_or_else(|| PathBuf::from("SKILL.md"));
-                    if let Some(parent) = skill_path.parent() {
-                        let _ = fs::create_dir_all(parent);
-                    }
-                    println!("[+] Antigravity skill integration target: {}", skill_path.display());
+                    let msg = integrations::install_antigravity(None)?;
+                    println!("[+] {}", msg);
                 }
                 "claude" => {
-                    let p = ws.join("CLAUDE.md");
-                    println!("[+] Claude integration target: {}", p.display());
+                    let msg = integrations::install_claude(ws_ref)?;
+                    println!("[+] {}", msg);
                 }
                 "copilot" => {
-                    let p = ws.join(".github/copilot-instructions.md");
-                    println!("[+] Copilot integration target: {}", p.display());
+                    let msg = integrations::install_copilot(ws_ref)?;
+                    println!("[+] {}", msg);
                 }
                 "cursor" => {
-                    let p = ws.join(".cursorrules");
-                    println!("[+] Cursor integration target: {}", p.display());
+                    let msg = integrations::install_cursor(ws_ref)?;
+                    println!("[+] {}", msg);
                 }
                 "pi" => {
-                    let p = ws.join("AGENTS.md");
-                    println!("[+] Universal AGENTS.md target: {}", p.display());
+                    let msg = integrations::install_pi(ws_ref)?;
+                    println!("[+] {}", msg);
                 }
                 _ => {
-                    println!("[+] Configured agent integrations across workspace: {}", ws.display());
+                    let results = integrations::auto_detect_and_install_all(ws_ref);
+                    for r in results {
+                        println!("{}", r);
+                    }
                 }
             }
         }
@@ -462,18 +463,20 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Schedule {
             install,
             uninstall,
-            status,
+            status: _,
             time,
             scheduler_type,
         } => {
             if install {
-                println!("Crontab / Scheduler entry installed daily at {}.", time);
+                let msg = scheduler::install_schedule(&time, &scheduler_type)?;
+                println!("{}", msg);
             } else if uninstall {
-                println!("Crontab / Scheduler entry uninstalled.");
-            } else if status {
-                println!("Scheduler Status: Daily at 02:00 ({})", scheduler_type);
+                let msg = scheduler::uninstall_schedule(&scheduler_type)?;
+                println!("{}", msg);
             } else {
-                println!("Scheduler Status: Daily at 02:00 ({})", scheduler_type);
+                println!("Scheduler Status:");
+                let st = scheduler::get_schedule_status(&scheduler_type);
+                println!("  {}", st);
             }
         }
 

@@ -766,3 +766,102 @@ fn test_cli_consolidate_prepare_and_apply() {
     assert!(show_str.contains("Defensive safeguard"));
 }
 
+#[test]
+fn test_scheduler_time_parsing_and_status() {
+    assert_eq!(experienced_llms::scheduler::parse_time("02:00"), (2, 0));
+    assert_eq!(experienced_llms::scheduler::parse_time("15:45"), (15, 45));
+    assert_eq!(experienced_llms::scheduler::parse_time("invalid"), (2, 0));
+
+    let status = experienced_llms::scheduler::get_schedule_status("auto");
+    assert!(!status.is_empty());
+
+    let uninst = experienced_llms::scheduler::uninstall_schedule("auto");
+    assert!(uninst.is_ok());
+}
+
+#[test]
+fn test_agent_integrations_files() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let ws = dir.path().to_path_buf();
+
+    // 1. Antigravity
+    let ag_dir = ws.join("antigravity_skill");
+    let ag_res = experienced_llms::integrations::install_antigravity(Some(&ag_dir));
+    assert!(ag_res.is_ok());
+    assert!(ag_dir.join("SKILL.md").exists());
+
+    // 2. Claude
+    let cl_res = experienced_llms::integrations::install_claude(Some(&ws));
+    assert!(cl_res.is_ok());
+    let cl_file = ws.join("CLAUDE.md");
+    assert!(cl_file.exists());
+    let cl_content = fs::read_to_string(&cl_file).unwrap();
+    assert!(cl_content.contains("<!-- BEGIN EXPERIENCED-LLMS -->"));
+
+    // 3. Idempotent block replacement
+    experienced_llms::integrations::append_or_replace_block(
+        &cl_file,
+        experienced_llms::integrations::UNIVERSAL_INSTRUCTION_BLOCK,
+    )
+    .unwrap();
+    let cl_content_again = fs::read_to_string(&cl_file).unwrap();
+    assert_eq!(
+        cl_content_again.matches("<!-- BEGIN EXPERIENCED-LLMS -->").count(),
+        1,
+        "Instruction block must be replaced idempotently without duplicate markers"
+    );
+
+    // 4. Copilot
+    let cp_res = experienced_llms::integrations::install_copilot(Some(&ws));
+    assert!(cp_res.is_ok());
+    assert!(ws.join(".github").join("copilot-instructions.md").exists());
+
+    // 5. Cursor
+    let cur_res = experienced_llms::integrations::install_cursor(Some(&ws));
+    assert!(cur_res.is_ok());
+    assert!(ws.join(".cursorrules").exists());
+
+    // 6. Pi
+    let pi_res = experienced_llms::integrations::install_pi(Some(&ws));
+    assert!(pi_res.is_ok());
+    assert!(ws.join("AGENTS.md").exists());
+}
+
+#[test]
+fn test_cli_integrate_and_schedule_commands() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let ws = dir.path().to_path_buf();
+    let exe = env!("CARGO_BIN_EXE_experienced-llms");
+
+    // 1. Integrate targets
+    let out_claude = Command::new(exe)
+        .args(["integrate", "--target", "claude", "--workspace", ws.to_str().unwrap()])
+        .output()
+        .expect("Failed to run integrate claude");
+    assert!(out_claude.status.success());
+    assert!(ws.join("CLAUDE.md").exists());
+
+    let out_cursor = Command::new(exe)
+        .args(["integrate", "--target", "cursor", "--workspace", ws.to_str().unwrap()])
+        .output()
+        .expect("Failed to run integrate cursor");
+    assert!(out_cursor.status.success());
+    assert!(ws.join(".cursorrules").exists());
+
+    let out_all = Command::new(exe)
+        .args(["integrate", "--target", "all", "--workspace", ws.to_str().unwrap()])
+        .output()
+        .expect("Failed to run integrate all");
+    assert!(out_all.status.success());
+    assert!(ws.join("AGENTS.md").exists());
+
+    // 2. Schedule status
+    let out_status = Command::new(exe)
+        .args(["schedule", "--status"])
+        .output()
+        .expect("Failed to run schedule status");
+    assert!(out_status.status.success());
+    let status_str = String::from_utf8_lossy(&out_status.stdout);
+    assert!(status_str.contains("Scheduler Status:"));
+}
+
