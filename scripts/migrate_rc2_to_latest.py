@@ -123,7 +123,7 @@ def parse_bullet_line(line: str):
         content = scope_match.group(2).strip()
 
     reason = ""
-    reason_match = re.search(r"\*\(Reason:\s*([^)]+)\)\*$", content, re.IGNORECASE)
+    reason_match = re.search(r"\*\(Reason:\s*(.+?)\)\*$", content, re.IGNORECASE)
     if reason_match:
         reason = reason_match.group(1).strip()
         rule = content[:reason_match.start()].strip()
@@ -147,19 +147,89 @@ def extract_from_markdown(file_path: Path, default_cat: str = "defensive_heurist
 
     current_cat = default_cat
     extracted = []
+    cur_entry = None
+    in_intraday = False
+
+    def flush_entry():
+        nonlocal cur_entry
+        if cur_entry and cur_entry.get("rule"):
+            rule = cur_entry["rule"]
+            rule = re.sub(r"^\*\*(?:Rule|Rule Statement)\*\*:\s*", "", rule, flags=re.IGNORECASE).strip()
+            rule = re.sub(r"<!--.*?-->", "", rule, flags=re.DOTALL).strip()
+            if rule and not rule.lower().startswith("*(none recorded") and not rule.lower().startswith("*none*") and rule.lower() != "(none)":
+                reason = cur_entry.get("reason", "")
+                reason = re.sub(r"^\*\*(?:Reason/Context|Reason|Context)\*\*:\s*", "", reason, flags=re.IGNORECASE).strip()
+                reason = re.sub(r"<!--.*?-->", "", reason, flags=re.DOTALL).strip()
+                extracted.append({
+                    "category": cur_entry.get("category", default_cat),
+                    "scope": cur_entry.get("scope", "global"),
+                    "rule": rule,
+                    "reason": reason
+                })
+        cur_entry = None
 
     for line in lines:
         stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Check for intraday header: ### [HH:MM:SS] [CATEGORY] (scope) or ### [CATEGORY] (scope)
+        intraday_header = re.match(
+            r"^###\s*(?:\[\d{2}:\d{2}(?::\d{2})?\])?\s*\[([A-Za-z_]+)\](?:\s*\(([^)]+)\))?",
+            stripped
+        )
+        if intraday_header:
+            flush_entry()
+            cat_raw = intraday_header.group(1).lower().strip()
+            cat = CATEGORY_MAP.get(cat_raw, default_cat)
+            scope = intraday_header.group(2).strip() if intraday_header.group(2) else "global"
+            in_intraday = True
+            cur_entry = {"category": cat, "scope": scope, "rule": "", "reason": ""}
+            continue
+
+        # Check for section header: ## 1. Category
         if stripped.startswith("##"):
+            flush_entry()
+            in_intraday = False
             header_name = re.sub(r"^##\s*(\d+\.\s*)?", "", stripped).strip().lower()
             current_cat = CATEGORY_MAP.get(header_name, default_cat)
             continue
 
+        # If inside intraday block
+        if in_intraday and cur_entry is not None:
+            rule_match = re.match(r"^-\s*\*\*(?:Rule|Rule Statement)\*\*:\s*(.+)$", stripped, re.IGNORECASE)
+            if rule_match:
+                cur_entry["rule"] = rule_match.group(1).strip()
+                continue
+
+            reason_match = re.match(r"^-\s*\*\*(?:Reason/Context|Reason|Context)\*\*:\s*(.+)$", stripped, re.IGNORECASE)
+            if reason_match:
+                cur_entry["reason"] = reason_match.group(1).strip()
+                continue
+
+            if stripped.startswith("-"):
+                item = parse_bullet_line(stripped)
+                if item and item["rule"]:
+                    if not cur_entry["rule"]:
+                        cur_entry["rule"] = item["rule"]
+                        if item["reason"]:
+                            cur_entry["reason"] = item["reason"]
+                    else:
+                        flush_entry()
+                        item["category"] = current_cat
+                        extracted.append(item)
+                continue
+
+        # Standard bullet line under section header
         item = parse_bullet_line(stripped)
         if item and item["rule"]:
+            if re.match(r"^\*\*(?:Reason/Context|Reason|Context)\*\*:", item["rule"], re.IGNORECASE):
+                continue
+            item["rule"] = re.sub(r"^\*\*(?:Rule|Rule Statement)\*\*:\s*", "", item["rule"], flags=re.IGNORECASE).strip()
             item["category"] = current_cat
             extracted.append(item)
 
+    flush_entry()
     return extracted
 
 def render_experience_markdown(conn: sqlite3.Connection, target_file: Path):
@@ -199,16 +269,37 @@ def render_experience_markdown(conn: sqlite3.Connection, target_file: Path):
 
 def migrate_rc2(home_dir: Path, exp_file: Path, db_path: Path, dry_run: bool = False, no_backup: bool = False):
     print(f"[*] Inspecting rc2 environment at: {home_dir}")
+
+    # If exp_file does not exist directly, check previous backup archives
+    if not exp_file.exists():
+        for b_dir in sorted(home_dir.glob("backup_rc2_*"), reverse=True):
+            orig_backup = b_dir / "EXPERIENCE.md.rc2_orig"
+            if orig_backup.exists():
+                print(f"[+] Found archived rc2 experience file: {orig_backup}")
+                exp_file = orig_backup
+                break
+
     extracted_active = extract_from_markdown(exp_file) if exp_file.exists() else []
 
-    # Check for pending facts in legacy raw_days or daily
+    # Check for pending facts in legacy raw_days, daily, or previous backup folders
     raw_days_dir = home_dir / "raw_days"
     daily_dir = home_dir / "daily"
     extracted_pending = []
 
-    for scan_dir in [raw_days_dir, daily_dir]:
+    scan_dirs = [raw_days_dir, daily_dir]
+    for b_dir in home_dir.glob("backup_rc2_*"):
+        if (b_dir / "raw_days").exists():
+            scan_dirs.append(b_dir / "raw_days")
+        if (b_dir / "daily").exists():
+            scan_dirs.append(b_dir / "daily")
+
+    scanned_files = set()
+    for scan_dir in scan_dirs:
         if scan_dir.exists():
-            for day_file in sorted(scan_dir.glob("*.md")):
+            for day_file in sorted(scan_dir.rglob("*.md")):
+                if day_file in scanned_files:
+                    continue
+                scanned_files.add(day_file)
                 items = extract_from_markdown(day_file)
                 for item in items:
                     item["source_file"] = day_file.name
@@ -216,7 +307,7 @@ def migrate_rc2(home_dir: Path, exp_file: Path, db_path: Path, dry_run: bool = F
 
     total_rules = len(extracted_active) + len(extracted_pending)
     print(f"[+] Found {len(extracted_active)} consolidated rules in {exp_file.name if exp_file.exists() else 'N/A'}")
-    print(f"[+] Found {len(extracted_pending)} pending intraday rules across raw_days/daily")
+    print(f"[+] Found {len(extracted_pending)} intraday rules across raw_days/daily ({len(scanned_files)} files scanned)")
 
     if dry_run:
         print("\n--- Dry Run Preview (No database changes) ---")
