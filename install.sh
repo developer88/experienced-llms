@@ -101,11 +101,26 @@ if [ "${INSTALLED_LOCAL}" = false ]; then
 
     if command -v curl >/dev/null 2>&1; then
         curl -fsSL "${DOWNLOAD_URL}" -o "${TARGET_BIN}" || {
-            # Fallback to gnu if musl download fails
-            FALLBACK_ASSET="experienced-llms-linux-x86_64-gnu"
-            FALLBACK_URL="https://github.com/${REPO}/releases/${VERSION_TAG}/download/${FALLBACK_ASSET}"
-            echo "[*] Trying fallback: ${FALLBACK_URL}"
-            curl -fsSL "${FALLBACK_URL}" -o "${TARGET_BIN}"
+            case "${OS}" in
+                Darwin*)
+                    echo "[!] Prebuilt binary for macOS (${ARCH}) not found in this release."
+                    if command -v cargo >/dev/null 2>&1; then
+                        echo "[+] Building and installing directly via Cargo on macOS..."
+                        cargo install --git "https://github.com/${REPO}" --bin experienced-llms --root "${HOME}/.local"
+                    else
+                        echo "[-] Error: Please install Rust (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh) or run:"
+                        echo "    cargo install --git https://github.com/${REPO}"
+                        exit 1
+                    fi
+                    ;;
+                *)
+                    # Fallback to gnu if musl download fails on Linux
+                    FALLBACK_ASSET="experienced-llms-linux-x86_64-gnu"
+                    FALLBACK_URL="https://github.com/${REPO}/releases/${VERSION_TAG}/download/${FALLBACK_ASSET}"
+                    echo "[*] Trying fallback: ${FALLBACK_URL}"
+                    curl -fsSL "${FALLBACK_URL}" -o "${TARGET_BIN}"
+                    ;;
+            esac
         }
     elif command -v wget >/dev/null 2>&1; then
         wget -qO "${TARGET_BIN}" "${DOWNLOAD_URL}"
