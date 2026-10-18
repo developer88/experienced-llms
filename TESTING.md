@@ -12,58 +12,59 @@ Before tagging or publishing any release, execute the master pre-release integra
 
 ```bash
 # In Linux, macOS, or WSL:
-python3 scripts/run_all_tests.py
+bash scripts/run_all_tests.sh
 ```
 
-This single command automatically validates all 4 quality gates in < 15 seconds with **zero host pollution**:
-1. **Source Syntax & Compilation**: Verifies all Python source and test files.
-2. **Hermetic Unit Test Suite**: Runs all 35+ unit tests using isolated in-memory/temp state.
-3. **Sandbox Integration Acceptance**: Executes `install.sh`, tests CLI wrappers, SQLite database schemas/migrations, and verifies the strict 2-file privacy guarantee (zero raw day files, zero dotfiles).
-4. **E2E Synthetic Consolidation**: Tests multi-day contradiction resolution and markdown generation (using `gemini-3.8-flash-low` if `agy` is present, or mock LLM).
+```powershell
+# In Windows 11 PowerShell:
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\test_install_windows.ps1
+```
+
+This validates all quality gates with **zero host pollution**:
+1. **Rust Engine Test Suite (`cargo test`)**: 100% hermetic unit & integration tests covering models, configuration, SQLite migrations, consolidator algorithms, prompt builder, agent integrations, and AgenticSkills compliance.
+2. **POSIX Installer Acceptance (`test_install_posix.sh`)**: Tests `install.sh` in local repo mode, streamed remote download mode, and fallback error handling.
+3. **Windows Installer Acceptance (`test_install_windows.ps1`)**: Tests `install.ps1` in isolated local sandboxes, streamed remote download mode, and error handling.
+4. **Isolated Full-Cycle Sandbox (`test_sandbox.sh`)**: Tests native binary execution, deterministic intraday logging, and consolidation in an ephemeral `/tmp/` sandbox.
 
 ---
 
-## 1. Fast Unit Tests (Hermetic)
+## 1. Rust Engine Tests (Cargo)
 
-The unit test suite uses `tempfile.TemporaryDirectory()` and mocked LLM providers to ensure 100% isolation from the developer's live memory:
+The native Rust engine includes a hermetic test suite covering all CLI subcommands, database transactions, consolidator algorithms, and AgenticSkills compliance:
 
 ```bash
-# Run via python (Linux, macOS, or WSL)
-python3 -m unittest discover -s tests
+cargo test
 ```
 
-- **Speed**: < 0.5s execution.
-- **Coverage**: Database initialization, migrations, fact insertions, superseding, deterministic intraday logging, interday consolidator fallback, prompt generation, and agent integrations.
+- **Speed**: Fast, parallel execution.
+- **Coverage**: Database initialization, migrations, fact insertions, superseding, deterministic intraday logging, interday consolidator fallback, prompt template resolution, agent integrations, and `SKILL.md` packaging.
 
 ---
 
-## 2. Isolated Full-Cycle Sandbox Testing (No Docker Required)
+## 2. Automated Installer Tests
 
-To test the entire end-to-end user lifecycle (installer execution, directory initialization, CLI command wrappers, real SQLite indexing, intraday logging, and consolidation) without Docker and with **zero host pollution**:
-
-### Linux / macOS / WSL:
+### POSIX (`install.sh`)
 ```bash
-bash scripts/test_sandbox.sh
+bash tests/test_install_posix.sh
 ```
+- Tests local repo installation mode.
+- Tests streamed piped execution (`cat install.sh | bash`) downloading from live GitHub CDN.
+- Tests failure detection and Cargo fallback instructions.
 
-### Cross-Platform Python:
-```bash
-python3 scripts/test_sandbox.py
+### Windows (`install.ps1`)
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\test_install_windows.ps1
 ```
-
-### How the Sandbox Works:
-1. Allocates an ephemeral directory in `/tmp/` (`mktemp -d`).
-2. Redirects `$HOME`, `EXPERIENCED_LLMS_HOME`, and `EXPERIENCED_LLMS_DB` to the sandbox.
-3. Runs `install.sh` and verifies that all files and CLI wrappers are created exclusively inside the sandbox.
-4. Executes live CLI operations (`experienced-llms log`, `status`, `consolidate`, `show`).
-5. Runs the unit test suite against the sandboxed state.
-6. Automatically destroys and cleans up the sandbox on exit.
+- Tests sandboxed local installation mode.
+- Tests streamed execution (`Invoke-Expression`) downloading Windows `.exe` from GitHub CDN.
+- Verifies PATH registration and Task Scheduler setup.
+- Restores user PATH with zero host pollution.
 
 ---
 
 ## 3. Containerized Local Testing (Docker - Zero Cloud Minutes)
 
-To test the entire release pipeline (installers, standalone Rust binary, unit tests, SQLite persistence, and CLI commands) with **zero host pollution** and **zero GitHub Actions cloud costs**:
+To test the entire release pipeline (installers, standalone Rust binary, unit tests, SQLite persistence, and CLI commands) inside an isolated Linux container with **zero host pollution** and **zero GitHub Actions cloud costs**:
 
 ```bash
 # Run isolated container test suite (100% hermetic)
@@ -71,16 +72,6 @@ bash scripts/pipeline.sh test
 
 # Build release binaries for Linux (musl & gnu) and Windows locally:
 bash scripts/pipeline.sh build
-```
-
----
-
-## 4. Standalone Rust Engine Tests (Cargo)
-
-The Rust native engine includes a hermetic test suite covering all CLI subcommands, database migrations, consolidator algorithms, and cross-language compatibility:
-
-```bash
-cargo test
 ```
 
 ---

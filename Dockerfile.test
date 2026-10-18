@@ -4,10 +4,8 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/root
 
-# Install runtime dependencies (Python 3, build tools, git, cron, curl)
+# Install runtime dependencies (build tools, git, cron, curl)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
     build-essential \
     git \
     cron \
@@ -32,7 +30,7 @@ CMD ["bash", "-c", "\
     echo '===================================================' && \
     echo '  Experienced LLMs: Docker Container Test Pipeline' && \
     echo '===================================================' && \
-    python3 scripts/run_all_tests.py && \
+    bash scripts/run_all_tests.sh && \
     echo '=== Testing CLI Shims & Intraday Logging in Container ===' && \
     ~/.local/bin/experienced-llms log 'Isolated Docker test fact' --reason 'Hermetic container verification' --category defensive_heuristic && \
     echo '=== Testing Consolidator in Container ===' && \

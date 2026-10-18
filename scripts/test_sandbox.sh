@@ -65,8 +65,20 @@ if ! grep -q "Always run isolated tests" "${SANDBOX_DIR}/prepare_payload.json"; 
 fi
 echo "[+] Verified consolidate --prepare outputs valid prompt payload."
 
-MOCK_CLI="python3 -c 'import sys, json; sys.stdout.write(json.dumps({\"updated_experience_markdown\": \"# Master AI Experience\\n\\n## 2. Defensive Safeguards & Heuristics\\n- Always run isolated tests in temporary sandbox\", \"processed_pending_ids\": [1], \"superseded_fact_ids\": [], \"summary_of_changes\": \"Consolidated sandbox test rule.\"}))'"
-"${CLI_BIN}" consolidate --llm "${MOCK_CLI}"
+MOCK_LLM_SCRIPT="${SANDBOX_DIR}/mock_llm.sh"
+cat << 'EOF' > "${MOCK_LLM_SCRIPT}"
+#!/bin/sh
+cat << 'JSON_EOF'
+{
+  "updated_experience_markdown": "# Master AI Experience\n\n## 2. Defensive Safeguards & Heuristics\n- Always run isolated tests in temporary sandbox",
+  "processed_pending_ids": [1],
+  "superseded_fact_ids": [],
+  "summary_of_changes": "Consolidated sandbox test rule."
+}
+JSON_EOF
+EOF
+chmod +x "${MOCK_LLM_SCRIPT}"
+"${CLI_BIN}" consolidate --llm "${MOCK_LLM_SCRIPT}"
 
 EXP_CONTENT="$(cat "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md")"
 if ! echo "${EXP_CONTENT}" | grep -q "Always run isolated tests"; then
@@ -75,9 +87,9 @@ if ! echo "${EXP_CONTENT}" | grep -q "Always run isolated tests"; then
 fi
 echo "[+] Verified consolidation pass updated sandbox EXPERIENCE.md."
 
-# 6. Run unit test suite
-echo "[+] Step 4: Running full unit test suite..."
-python3 -m unittest discover -s "${REPO_ROOT}/tests"
+# 6. Verify show command
+echo "[+] Step 4: Verifying master experience show command..."
+"${CLI_BIN}" show
 
 echo ""
 echo "=========================================================="

@@ -15,7 +15,7 @@ Write-Host "==========================================================" -Foregro
 
 $InstallDir = "$env:LOCALAPPDATA\Programs\experienced-llms\bin"
 $DestExe = Join-Path $InstallDir "experienced-llms.exe"
-$ExperiencedHome = "$env:USERPROFILE\.experienced-llms"
+$ExperiencedHome = if ($env:EXPERIENCED_LLMS_HOME) { $env:EXPERIENCED_LLMS_HOME } else { "$env:USERPROFILE\.experienced-llms" }
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 New-Item -ItemType Directory -Force -Path $ExperiencedHome | Out-Null
@@ -53,11 +53,36 @@ if (-not $InstalledLocal) {
     $DownloadUrl = "https://github.com/$Repo/releases/$VersionTag/download/$AssetName"
     Write-Host "[+] Downloading native Windows binary from: $DownloadUrl" -ForegroundColor Yellow
 
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $DownloadUrl -OutFile $DestExe -UseBasicParsing
+    $DownloadSuccess = $false
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $DownloadUrl -OutFile $DestExe -UseBasicParsing
+        $DownloadSuccess = $true
+    } catch {
+        Write-Host "[!] Prebuilt binary download failed: $_" -ForegroundColor Yellow
+    }
+
+    if (-not $DownloadSuccess) {
+        if (Get-Command cargo -ErrorAction SilentlyContinue) {
+            Write-Host "[+] Cargo detected! Compiling and installing directly from source via Cargo..." -ForegroundColor Green
+            cargo install --git "https://github.com/$Repo" --bin experienced-llms --root "$env:LOCALAPPDATA\Programs\experienced-llms"
+            if (-not (Test-Path $DestExe)) {
+                Write-Host "[-] Error: Cargo build completed but $DestExe was not found." -ForegroundColor Red
+                exit 1
+            }
+        } else {
+            Write-Host "[-] Error: Failed to download prebuilt Windows binary and Cargo is not installed on this system." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "To install Experienced LLMs from source:" -ForegroundColor Yellow
+            Write-Host "  1. Install Rust toolchain: Download and run rustup-init.exe from https://rustup.rs"
+            Write-Host "  2. Run:                   cargo install --git https://github.com/$Repo"
+            Write-Host ""
+            exit 1
+        }
+    }
 }
 
-Write-Host "[✔] Installed standalone native binary to: $DestExe" -ForegroundColor Green
+Write-Host "[OK] Installed standalone native binary to: $DestExe" -ForegroundColor Green
 
 # 3. PATH Registration (Persistent User PATH)
 $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -82,7 +107,7 @@ Write-Host "[+] Installing nightly consolidation schedule in Windows Task Schedu
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  [✔] Experienced LLMs Successfully Installed & Active!" -ForegroundColor Green
+Write-Host "  [OK] Experienced LLMs Successfully Installed & Active!" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 & "$DestExe" status
 Write-Host ""

@@ -19,6 +19,20 @@ echo "=========================================================="
 mkdir -p "${BIN_DIR}"
 mkdir -p "${EXPERIENCED_HOME}"
 
+# Download helper using curl or wget
+download_file() {
+    local url="$1"
+    local dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${url}" -o "${dest}" || return 1
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO "${dest}" "${url}" || return 1
+    else
+        return 1
+    fi
+    return 0
+}
+
 # 1. Detect OS and Architecture
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -99,34 +113,34 @@ if [ "${INSTALLED_LOCAL}" = false ]; then
     DOWNLOAD_URL="https://github.com/${REPO}/releases/${VERSION_TAG}/download/${ASSET_NAME}"
     echo "[+] Fetching binary from: ${DOWNLOAD_URL}"
 
-    if command -v curl >/dev/null 2>&1; then
-        curl -fsSL "${DOWNLOAD_URL}" -o "${TARGET_BIN}" || {
-            case "${OS}" in
-                Darwin*)
-                    echo "[!] Prebuilt binary for macOS (${ARCH}) not found in this release."
-                    if command -v cargo >/dev/null 2>&1; then
-                        echo "[+] Building and installing directly via Cargo on macOS..."
-                        cargo install --git "https://github.com/${REPO}" --bin experienced-llms --root "${HOME}/.local"
-                    else
-                        echo "[-] Error: Please install Rust (curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh) or run:"
-                        echo "    cargo install --git https://github.com/${REPO}"
-                        exit 1
-                    fi
-                    ;;
-                *)
-                    # Fallback to gnu if musl download fails on Linux
-                    FALLBACK_ASSET="experienced-llms-linux-x86_64-gnu"
-                    FALLBACK_URL="https://github.com/${REPO}/releases/${VERSION_TAG}/download/${FALLBACK_ASSET}"
-                    echo "[*] Trying fallback: ${FALLBACK_URL}"
-                    curl -fsSL "${FALLBACK_URL}" -o "${TARGET_BIN}"
-                    ;;
-            esac
-        }
-    elif command -v wget >/dev/null 2>&1; then
-        wget -qO "${TARGET_BIN}" "${DOWNLOAD_URL}"
-    else
-        echo "[-] Error: curl or wget is required to download the binary."
-        exit 1
+    DOWNLOAD_SUCCESS=false
+    if download_file "${DOWNLOAD_URL}" "${TARGET_BIN}"; then
+        DOWNLOAD_SUCCESS=true
+    elif [ "${OS}" = "Linux" ] && [ "${LIBC_FLAVOR}" = "musl" ]; then
+        FALLBACK_ASSET="experienced-llms-linux-x86_64-gnu"
+        FALLBACK_URL="https://github.com/${REPO}/releases/${VERSION_TAG}/download/${FALLBACK_ASSET}"
+        echo "[*] Trying GNU libc fallback: ${FALLBACK_URL}"
+        if download_file "${FALLBACK_URL}" "${TARGET_BIN}"; then
+            DOWNLOAD_SUCCESS=true
+        fi
+    fi
+
+    if [ "${DOWNLOAD_SUCCESS}" = false ]; then
+        echo ""
+        echo "[!] Prebuilt binary not available for ${OS} (${ARCH})."
+        if command -v cargo >/dev/null 2>&1; then
+            echo "[+] Cargo detected! Building and installing directly from source via Cargo..."
+            cargo install --git "https://github.com/${REPO}" --bin experienced-llms --root "${HOME}/.local"
+            DOWNLOAD_SUCCESS=true
+        else
+            echo "[-] Error: No prebuilt binary found and Cargo is not installed on this system."
+            echo ""
+            echo "To build Experienced LLMs from source for your platform:"
+            echo "  1. Install Rust toolchain: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+            echo "  2. Install via Cargo:      cargo install --git https://github.com/${REPO}"
+            echo ""
+            exit 1
+        fi
     fi
 
     chmod +x "${TARGET_BIN}"

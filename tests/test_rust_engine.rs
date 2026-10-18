@@ -865,3 +865,62 @@ fn test_cli_integrate_and_schedule_commands() {
     assert!(status_str.contains("Scheduler Status:"));
 }
 
+#[test]
+fn test_skill_packaging_and_compliance() {
+    let skill_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("skills")
+        .join("experienced-llm")
+        .join("SKILL.md");
+
+    assert!(skill_path.exists(), "skills/experienced-llm/SKILL.md must exist");
+
+    let content = fs::read_to_string(&skill_path).expect("Failed to read SKILL.md");
+    let fm_re = regex::Regex::new(r"(?s)^---\r?\n(.*?)\r?\n---").unwrap();
+    let caps = fm_re.captures(&content).expect("SKILL.md must start with YAML frontmatter bounded by ---");
+    let frontmatter = caps.get(1).unwrap().as_str();
+
+    // 1. Name
+    let name_re = regex::Regex::new(r"(?m)^name:\s*([\w\-]+)").unwrap();
+    let name_caps = name_re.captures(frontmatter).expect("Missing 'name' in YAML frontmatter");
+    assert_eq!(&name_caps[1], "experienced-llm");
+
+    // 2. Description (< 200 chars, > 20 chars)
+    let desc_re = regex::Regex::new(r"(?m)^description:\s*(.+)$").unwrap();
+    let desc_caps = desc_re.captures(frontmatter).expect("Missing 'description' in YAML frontmatter");
+    let desc = desc_caps[1].trim();
+    assert!(desc.len() < 200, "Description must be < 200 chars");
+    assert!(desc.len() > 20, "Description must be > 20 chars");
+
+    // 3. Version
+    let ver_re = regex::Regex::new(r"(?m)^version:\s*(.+)$").unwrap();
+    let ver_caps = ver_re.captures(frontmatter).expect("Missing 'version' in YAML frontmatter");
+    assert_eq!(ver_caps[1].trim(), "1.0.0rc4");
+
+    // 4. Author
+    let author_re = regex::Regex::new(r"(?m)^author:\s*(.+)$").unwrap();
+    let author_caps = author_re.captures(frontmatter).expect("Missing 'author' in YAML frontmatter");
+    assert_eq!(author_caps[1].trim(), "developer88");
+
+    // 5. Repository
+    let repo_re = regex::Regex::new(r"(?m)^repository:\s*(.+)$").unwrap();
+    let repo_caps = repo_re.captures(frontmatter).expect("Missing 'repository' in YAML frontmatter");
+    assert_eq!(repo_caps[1].trim(), "https://github.com/developer88/experienced-llms");
+
+    // 6. License
+    let lic_re = regex::Regex::new(r"(?m)^license:\s*(.+)$").unwrap();
+    let lic_caps = lic_re.captures(frontmatter).expect("Missing 'license' in YAML frontmatter");
+    assert_eq!(lic_caps[1].trim(), "MIT");
+
+    // 7. Keywords
+    assert!(frontmatter.contains("keywords:"));
+    assert!(frontmatter.contains("memory"));
+    assert!(frontmatter.contains("persistent-memory"));
+
+    // 8. Operational documentation sections
+    assert!(content.contains("# Experienced LLM Operating Protocol"));
+    assert!(content.contains("## 1. Startup Bootstrap"));
+    assert!(content.contains("## 2. Daytime Operational Logging"));
+    assert!(content.contains("## 3. Consolidation Engine"));
+}
+
+
