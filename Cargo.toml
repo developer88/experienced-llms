@@ -1,6 +1,6 @@
 [package]
 name = "experienced-llms"
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.4"
 edition = "2021"
 authors = ["Andrey Eremin <andrey.eremin.de@gmail.com>"]
 description = "Autonomous memory & operational wisdom engine for AI coding agents"

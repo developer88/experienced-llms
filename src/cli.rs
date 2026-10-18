@@ -15,7 +15,7 @@ use crate::scheduler;
 
 #[derive(Parser, Debug)]
 #[command(name = "experienced-llms")]
-#[command(version = "1.0.0-rc.3")]
+#[command(version)]
 #[command(about = "Experienced LLMs: Autonomous Self-Learning & Memory Consolidation", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]

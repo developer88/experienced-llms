@@ -35,7 +35,7 @@ class TestSkillPackagingAndCompliance(unittest.TestCase):
         # 3. Version
         ver_match = re.search(r"^version:\s*(.+)$", frontmatter, re.MULTILINE)
         self.assertIsNotNone(ver_match, "Missing 'version' in YAML frontmatter")
-        self.assertEqual(ver_match.group(1).strip(), "1.0.0rc3")
+        self.assertEqual(ver_match.group(1).strip(), "1.0.0rc4")
 
         # 4. Author
         author_match = re.search(r"^author:\s*(.+)$", frontmatter, re.MULTILINE)
@@ -76,7 +76,7 @@ class TestSkillPackagingAndCompliance(unittest.TestCase):
             self.assertTrue(installed_file.exists())
             installed_content = installed_file.read_text(encoding="utf-8")
             self.assertIn("name: experienced-llm", installed_content)
-            self.assertIn("version: 1.0.0rc3", installed_content)
+            self.assertIn("version: 1.0.0rc4", installed_content)
 
 if __name__ == "__main__":
     unittest.main()

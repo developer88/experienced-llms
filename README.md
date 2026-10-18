@@ -5,7 +5,7 @@
 # Experienced LLMs
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: 1.0.0rc3](https://img.shields.io/badge/Version-1.0.0rc3-green.svg)](https://github.com/developer88/experienced-llms/releases)
+[![Version: 1.0.0rc4](https://img.shields.io/badge/Version-1.0.0rc4-green.svg)](https://github.com/developer88/experienced-llms/releases)
 [![AgenticSkills: S-Rank](https://img.shields.io/badge/AgenticSkills-Compliant-orange.svg)](https://agenticskills.io/methodology)
 
 This is not an AI memory, the goal is to add self-education to LLM agents. We give AI tools and abilities via Skills and MCP, we modify some of their behaviour via `AGENTS.md`, but tailoring it further is hard and time consuming.
@@ -174,7 +174,7 @@ For detailed architecture, JSON schemas, and domain-specific examples, see [Cons
 | `experienced-llms integrate` | `--target`, `--workspace` | Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi) |
 | `experienced-llms migrate` | *(None)* | Run pending full-stack migrations across DB, skills, and configuration |
 | `experienced-llms init` | *(None)* | Initialize SQLite schema and directory structure |
-| `experienced-llms --version` | `-v` | Display version information (`1.0.0rc3`) |
+| `experienced-llms --version` | `-v` | Display version information (`1.0.0rc4`) |
 
 ---
 
@@ -182,7 +182,7 @@ For detailed architecture, JSON schemas, and domain-specific examples, see [Cons
 
 Experienced LLMs is packaged in full accordance with the [agenticskills.io/methodology](https://agenticskills.io/methodology) standard:
 - **Canonical Skill Location**: `skills/experienced-llm/SKILL.md`
-- **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc3`), author, repository, license, and keywords.
+- **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc4`), author, repository, license, and keywords.
 - **Safety & Containment**: 100% offline daytime operation, zero capability escalation, zero private data leakage.
 
 ---

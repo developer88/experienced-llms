@@ -42,6 +42,7 @@ fi
 if gh release view "${TAG}" &> /dev/null; then
     echo "[+] Release '${TAG}' exists. Uploading local artifacts from ./dist/..."
     gh release upload "${TAG}" "${DIST_DIR}"/* --clobber
+    gh release edit "${TAG}" --latest
 else
     echo "[+] Creating GitHub Release '${TAG}' and uploading local artifacts..."
     EXTRA_ARGS=()
@@ -50,7 +51,7 @@ else
     else
         EXTRA_ARGS+=("--notes" "Release ${TAG} compiled locally with zero cloud worker minutes.")
     fi
-    gh release create "${TAG}" "${DIST_DIR}"/* --title "${TITLE}" "${EXTRA_ARGS[@]}"
+    gh release create "${TAG}" "${DIST_DIR}"/* --title "${TITLE}" --latest "${EXTRA_ARGS[@]}"
 fi
 
 echo ""

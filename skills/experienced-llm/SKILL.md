@@ -1,7 +1,7 @@
 ---
 name: experienced-llm
 description: Autonomous memory interface to load past experience, log operational heuristics, and execute scheduled consolidation.
-version: 1.0.0rc3
+version: 1.0.0rc4
 author: developer88
 repository: https://github.com/developer88/experienced-llms
 license: MIT
