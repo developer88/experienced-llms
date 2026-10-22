@@ -11,14 +11,17 @@ echo "================================================================="
 
 cd "${REPO_ROOT}"
 
-echo "[1/3] Running Rust Cargo test suite..."
+echo "[1/4] Running Rust Cargo test suite..."
 cargo test
 
-echo "[2/3] Running POSIX installer automated test suite..."
+echo "[2/4] Running POSIX installer automated test suite..."
 bash tests/test_install_posix.sh
 
-echo "[3/3] Running Isolated Acceptance Sandbox..."
+echo "[3/4] Running Isolated Acceptance Sandbox..."
 bash scripts/test_sandbox.sh
+
+echo "[4/4] Running End-to-End Manual Acceptance Suite..."
+bash scripts/test_manual_acceptance.sh
 
 echo "================================================================="
 echo "[SUCCESS] All native Rust and installer test suites passed!"
