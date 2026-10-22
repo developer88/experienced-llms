@@ -89,7 +89,6 @@ impl InterdayConsolidator {
         conn: &rusqlite::Connection,
         target_date: Option<&str>,
         max_words: Option<usize>,
-        template_path: Option<&Path>,
     ) -> Result<(Option<String>, Option<String>, ConsolidationMetadata), Box<dyn std::error::Error>> {
         let cfg = config::load_config();
         let limit_words = max_words.unwrap_or(cfg.max_experience_words);
@@ -168,7 +167,7 @@ impl InterdayConsolidator {
                 .join("\n")
         };
 
-        let template = prompt_template::get_consolidation_template(template_path, self.home_dir.as_deref())?;
+        let template = prompt_template::get_consolidation_template(self.home_dir.as_deref())?;
         let system_prompt = template.replace("{max_words}", &limit_words.to_string());
 
         let user_prompt = format!(
@@ -287,7 +286,6 @@ impl InterdayConsolidator {
         &self,
         target_date: Option<&str>,
         max_words: Option<usize>,
-        template_path: Option<&Path>,
         engine_type_override: Option<&str>,
         db_path: Option<&Path>,
     ) -> Result<(PathBuf, String), Box<dyn std::error::Error>> {
@@ -305,7 +303,6 @@ impl InterdayConsolidator {
             &conn,
             target_date,
             max_words,
-            template_path,
         )?;
 
         let sys_prompt = match sys_prompt_opt {

@@ -24,12 +24,12 @@ Experienced LLMs provides an autonomous, self-educating operational experience e
 
 Before taking any actions or proposing solutions:
 1. Read the active master experience file: `~/.experienced-llms/EXPERIENCE.md`
-2. Strictly obey all User Directives, Project Constraints, and Defensive Heuristics defined there.
+2. Strictly obey all directives, safeguards, and preferences defined there.
 3. If the file does not exist yet, run `experienced-llms init` to initialize the baseline state and render EXPERIENCE.md.
 
 ---
 
-## 2. Daytime Operational Logging (Fast, Instant, Offline)
+## 2. Daytime Operational Logging (Fast, Instant)
 
 Proactively record actionable operational heuristics, defensive safeguards, hidden gotchas, or user directives whenever discovered during a session.
 
@@ -72,7 +72,6 @@ experienced-llms consolidate
 
 ### Consolidation Configuration Options:
 - `--max-words <int>`: Override word count limit for `EXPERIENCE.md` (default: 1,200 words, configurable via `config.json`).
-- `--template <path>`: Override the default prompt template located at `~/.experienced-llms/template.md`.
 
 ### Manual Re-render:
 Rebuild `EXPERIENCE.md` directly from active SQLite facts at any time:

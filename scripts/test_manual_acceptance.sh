@@ -254,10 +254,10 @@ fi
 echo "[✔] Step 8 PASSED: --prepare and --apply flags are completely rejected."
 
 # ------------------------------------------------------------------------------
-# Step 9: Verification of Removed Cloud Provider Flags & Default LLM Config
+# Step 9: Verification of Removed Cloud Provider & Template Flags & Default LLM Config
 # ------------------------------------------------------------------------------
 echo ""
-echo "--- [Step 9] Verifying removal of --provider and setup --llm functionality ---"
+echo "--- [Step 9] Verifying removal of --provider and --template flags, and setup --llm functionality ---"
 
 set +e
 "${BIN}" consolidate --provider gemini > /dev/null 2>&1
@@ -269,13 +269,23 @@ if [ "${PROVIDER_EXIT}" -eq 0 ]; then
     exit 1
 fi
 
+set +e
+"${BIN}" consolidate --template "custom.md" > /dev/null 2>&1
+TEMPLATE_FLAG_EXIT=$?
+set -e
+
+if [ "${TEMPLATE_FLAG_EXIT}" -eq 0 ]; then
+    echo "[-] FAILED: --template should be rejected as an unknown argument on consolidate!"
+    exit 1
+fi
+
 # Configure default external LLM command via setup
 "${BIN}" setup --llm "bash ${MOCK_LLM_SCRIPT}" --max-words 1200
 
 # Verify consolidation runs cleanly using configured default command without explicit --llm flag
 "${BIN}" consolidate
 
-echo "[✔] Step 9 PASSED: --provider flag rejected, and setup --llm default configuration verified."
+echo "[✔] Step 9 PASSED: --provider and --template flags rejected, and setup --llm default configuration verified."
 
 echo ""
 echo "================================================================="

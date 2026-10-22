@@ -6,17 +6,8 @@ use crate::config;
 pub use crate::config::DEFAULT_CONSOLIDATION_TEMPLATE;
 
 pub fn get_consolidation_template(
-    custom_path: Option<&Path>,
     home_dir: Option<&Path>,
 ) -> Result<String, Box<dyn std::error::Error>> {
-    if let Some(cp) = custom_path {
-        if cp.exists() {
-            return Ok(fs::read_to_string(cp)?);
-        } else {
-            return Err(format!("Custom consolidation template not found: {}", cp.display()).into());
-        }
-    }
-
     let home = home_dir
         .map(|p| p.to_path_buf())
         .unwrap_or_else(config::get_experienced_home);
@@ -32,7 +23,7 @@ pub fn get_consolidation_template(
     }
 
     Err(format!(
-        "Consolidation template missing at '{}'. Run 'experienced-llms init' to generate the default template or provide --template <path>.",
+        "Consolidation template missing at '{}'. Run 'experienced-llms init' to generate the default template.",
         default_template.display()
     ).into())
 }

@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::config;
@@ -24,7 +24,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Log an intraday rule or correction (fast, instant, offline)
+    /// Log an intraday rule or correction (fast, instant capture)
     Log {
         /// Concise operational rule statement
         statement: String,
@@ -119,10 +119,6 @@ pub enum Commands {
         /// Override maximum words ceiling for EXPERIENCE.md (default: 1200)
         #[arg(long = "max-words")]
         max_words: Option<usize>,
-
-        /// Path to custom consolidation prompt template
-        #[arg(long = "template")]
-        template: Option<String>,
     },
 
     /// Manage scheduled nightly consolidation daemon
@@ -354,10 +350,7 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             date,
             llm,
             max_words,
-            template,
         } => {
-            let template_path = template.as_deref().map(Path::new);
-
             let client = match llm_client::get_llm_client(llm.as_deref()) {
                 Ok(c) => c,
                 Err(e) => {
@@ -371,7 +364,6 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             match consolidator.consolidate(
                 date.as_deref(),
                 max_words,
-                template_path,
                 Some(engine_type),
                 None,
             ) {

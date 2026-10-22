@@ -31,7 +31,7 @@ Experienced LLMs operates with a strict privacy guarantee and a clean 2-componen
 
 ## 🏗️ How It Works
 
-1. **Daytime Logging (Offline)**: During normal work, you or your agent log lessons and constraints using `experienced-llms log "<directive>" --reason "<why>"`. It executes locally in milliseconds into SQLite with zero token waste.
+1. **Daytime Operational Logging**: During normal work, you or your agent log lessons and constraints using `experienced-llms log "<directive>" --reason "<why>"`. It executes locally in milliseconds into SQLite with zero token waste.
 2. **Consolidation (LLM)**: On a nightly schedule (or on demand), `experienced-llms consolidate` reads pending facts, synthesizes and deduplicates them using `~/.experienced-llms/template.md`, and supersedes outdated rules.
 3. **Continuous Execution**: The resulting high-density `EXPERIENCE.md` is immediately available to all your local AI agents on their next prompt.
 
@@ -55,9 +55,9 @@ irm https://github.com/developer88/experienced-llms/releases/latest/download/ins
 
 ---
 
-### Alternative / Offline / Source Installation
+### Source & Local Installation
 
-If you prefer building from source or working offline:
+If you prefer building from source:
 
 ```bash
 # Clone the repository
@@ -112,15 +112,13 @@ The cognitive consolidation engine distills daytime learnings into high-density 
 ### Core Consolidation Rules
 1. **Semantic Deduplication**: Merges overlapping heuristics into sharp, concise directives.
 2. **Contradiction Resolution**: Detects obsolete rules and marks them `superseded` in SQLite.
-3. **5 Canonical Categories**: Preserves standard operational sections (User Directives, Defensive Safeguards, Project Constraints, Anti-Patterns, Mistake Corrections).
+3. **Canonical Categorization**: Preserves standard operational sections and taxonomy across consolidation cycles.
 4. **Token Density & Word Ceiling**: Restricts output length (`--max-words`, default 1200 words) with zero HTML comments or timestamps.
 
-### Custom Prompt Templates
-Consolidation instructions and section taxonomies are governed by a markdown template:
-- **Default location**: `~/.experienced-llms/template.md` (created during `experienced-llms init`). The engine requires this file to exist on disk.
-- **Custom override**: Specify an explicit path via `experienced-llms consolidate --template /path/to/template.md`.
+### Prompt Template
+Consolidation instructions and section taxonomies are governed by `~/.experienced-llms/template.md` (created during `experienced-llms init`). The engine requires this file to exist on disk and will fail hard if it is missing.
 
-For detailed architecture, JSON schemas, and domain-specific examples, see [Consolidation Algorithm Guide](docs/consolidation_algorithm.md).
+For detailed architecture, JSON schemas, and template customization, see [Consolidation Algorithm Guide](docs/consolidation_algorithm.md).
 
 ---
 
@@ -128,8 +126,8 @@ For detailed architecture, JSON schemas, and domain-specific examples, see [Cons
 
 | Command | Arguments / Flags | Description |
 |---|---|---|
-| `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an intraday heuristic (fast, offline, local) |
-| `experienced-llms consolidate` | `--date`, `--llm`, `--max-words`, `--template` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
+| `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an intraday heuristic (fast, local SQLite capture) |
+| `experienced-llms consolidate` | `--date`, `--llm`, `--max-words` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
 | `experienced-llms render` | *(None)* | Rebuild clean `EXPERIENCE.md` directly from active SQLite facts |
 | `experienced-llms show` | *(None)* | Print active `~/.experienced-llms/EXPERIENCE.md` |
 | `experienced-llms status` | *(None)* | Show active facts, auto-skills, and schedule state |
@@ -148,7 +146,7 @@ For detailed architecture, JSON schemas, and domain-specific examples, see [Cons
 Experienced LLMs is packaged in full accordance with the [agenticskills.io/methodology](https://agenticskills.io/methodology) standard:
 - **Canonical Skill Location**: `skills/experienced-llm/SKILL.md`
 - **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc4`), author, repository, license, and keywords.
-- **Safety & Containment**: 100% offline daytime operation, zero capability escalation, zero private data leakage.
+- **Safety & Containment**: Strict local containment in user home, zero capability escalation, zero private data leakage.
 
 ---
 

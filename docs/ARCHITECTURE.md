@@ -8,7 +8,7 @@
 
 ```mermaid
 flowchart TD
-    subgraph Daytime ["Daytime Operational Logging (100% Offline Local CLI)"]
+    subgraph Daytime ["Daytime Operational Logging (Local CLI Capture)"]
         Agent["AI Agent / Developer"] -->|"experienced-llms log '<rule>' --category ... --reason ..."| DB[("~/.experienced-llms/memory.db<br/>(is_consolidated = 0)")]
     end
 
@@ -49,14 +49,14 @@ Lightweight instructions injected into AI agents (e.g. Antigravity, Claude Deskt
 
 ## 🔄 The Life Cycle of an Operational Rule
 
-### 1. Daytime Operational Capture (100% Offline)
+### 1. Daytime Operational Capture
 When an agent or developer records a correction or preference:
 ```bash
 experienced-llms log "Always run npm inside WSL, never directly on Windows" \
   --category user_preference \
   --reason "Avoid Windows path resolution issues"
 ```
-The command executes in milliseconds, appending the row to SQLite with `is_consolidated = 0`. No network requests or external LLM API calls are made during normal development sessions.
+The command executes in milliseconds, appending the row to SQLite with `is_consolidated = 0`.
 
 ### 2. Autonomous Consolidation
 Consolidation runs on a schedule (e.g. nightly at 02:00) or on-demand:
@@ -70,8 +70,8 @@ experienced-llms consolidate
 ```
 The consolidation process:
 1. **Reads Pending & Active Facts**: Gathers unconsolidated facts alongside current rules.
-2. **Loads Consolidation Template**: Reads `~/.experienced-llms/template.md` (or `--template <path>`). Fails hard if missing.
-3. **Semantic Deduplication**: Merges overlapping heuristics across the 5 canonical sections.
+2. **Loads Consolidation Template**: Reads `~/.experienced-llms/template.md`. Fails hard if missing.
+3. **Semantic Deduplication**: Merges overlapping heuristics across standard sections.
 4. **Contradiction Resolution**: Detects obsolete rules and marks them `superseded` in SQLite.
 5. **Ledger Update & Markdown Render**: Marks processed entries as consolidated and rebuilds `~/.experienced-llms/EXPERIENCE.md`.
 

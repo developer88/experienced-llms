@@ -81,7 +81,7 @@ esac
 
 echo "[+] Detected platform: ${OS} (${ARCH})"
 
-# 2. Check for local build or prebuilt artifact first (offline / source repo installation)
+# 2. Check for local build or prebuilt artifact first (source repo installation)
 INSTALLED_LOCAL=false
 SCRIPT_DIR=""
 if [ -n "${BASH_SOURCE[0]}" ] && [ -f "${BASH_SOURCE[0]}" ]; then

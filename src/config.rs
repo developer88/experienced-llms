@@ -27,13 +27,12 @@ pub const STARTER_EXPERIENCE_TEMPLATE: &str = r#"# Master AI Experience
 pub const DEFAULT_CONSOLIDATION_TEMPLATE: &str = r##"You are the master cognitive consolidation engine for Experienced LLMs.
 Your job is to merge new pending intraday facts with active memory and the current EXPERIENCE.md into a single, authoritative, high-density EXPERIENCE.md document.
 
-CANONICAL SECTIONS (Maintain these exact 5 headers in this order):
+CANONICAL SECTIONS (Maintain these standard headers in this order):
 # Master AI Experience
 ## 1. User Directives & Preferences
 ## 2. Defensive Safeguards & Heuristics
-## 3. Project-Specific Constraints
-## 4. Anti-Patterns & Critical Gotchas
-## 5. Mistake Corrections & Fixes
+## 3. Anti-Patterns & Critical Gotchas
+## 4. Mistake Corrections & Fixes
 
 CRITICAL CONSOLIDATION RULES:
 1. Semantic Deduplication: Merge redundant, overlapping, or paraphrased points into sharp, concise directives.

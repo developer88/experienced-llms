@@ -41,14 +41,13 @@ Intraday logs often capture similar lessons across multiple sessions or projects
 As projects evolve, newer directives may invalidate earlier decisions (e.g., switching from npm to pnpm, or revising a deployment flow). When the LLM detects a conflict, it preserves the newer directive in `updated_experience_markdown` and returns the superseded fact's ID in `superseded_fact_ids`. The engine automatically transitions those rows in SQLite from `active` to `superseded`.
 
 ### 3. Canonical Section Preservation
-By default, the engine maintains 5 canonical sections in fixed order:
+By default, the engine maintains standard operational sections in fixed order:
 ```markdown
 # Master AI Experience
 ## 1. User Directives & Preferences
 ## 2. Defensive Safeguards & Heuristics
-## 3. Project-Specific Constraints
-## 4. Anti-Patterns & Critical Gotchas
-## 5. Mistake Corrections & Fixes
+## 3. Anti-Patterns & Critical Gotchas
+## 4. Mistake Corrections & Fixes
 ```
 Maintaining standard headers ensures that downstream agents and IDE prompt injectors can reliably extract specific subsections.
 
@@ -83,58 +82,31 @@ When the LLM runs consolidation, it produces a structured JSON response:
 
 ---
 
-## 4. Customizing the Prompt Template
+## 4. The Consolidation Prompt Template
 
-Users can customize or completely replace the consolidation instructions to suit specialized environments (e.g., enterprise compliance, game development, microservice architectures).
+Consolidation instructions and section taxonomies are governed entirely by the on-disk markdown template located at:
+`~/.experienced-llms/template.md`
 
-### Template Resolution Order & Fail-Hard Guarantee
-
-1. **CLI Flag (`--template <path>`)**: Explicit path passed to `experienced-llms consolidate`.
-2. **Default File on Disk (`~/.experienced-llms/template.md`)**: Created automatically during `experienced-llms init`.
+### Fail-Hard Guarantee
 
 > [!IMPORTANT]
-> Experienced LLMs will **fail hard** with an exit error if `~/.experienced-llms/template.md` is missing and no `--template` path is provided. No hidden fallback prompt is used.
+> Experienced LLMs will **fail hard** with an exit error if `~/.experienced-llms/template.md` is missing from disk. No hidden fallback prompt is used. Run `experienced-llms init` to regenerate the default template if needed.
+
+### Customizing Your Template
+
+You can edit `~/.experienced-llms/template.md` directly to customize the instructions, guidelines, or section taxonomies for your environment.
 
 ### Template Variables
 
-Your custom template can include the following placeholder:
+Your template can include the following placeholder:
 - `{max_words}`: Substituted dynamically with the active maximum word ceiling (e.g., `1200`).
 
-### Example Custom Template
-
-Create `~/custom_template.md`:
-
-```markdown
-You are the consolidation engine for our Mobile Development team.
-Synthesize new learnings and update EXPERIENCE.md under {max_words} words.
-
-SECTIONS:
-# Master AI Experience
-## 1. Flutter & Dart Best Practices
-## 2. Platform Channels & Native Interop
-## 3. CI/CD & Fastlane Rules
-## 4. Performance & Memory Safeguards
-
-RULES:
-- Resolve any conflicting architectural patterns by favoring newer rules.
-- Return older superseded rule IDs in 'superseded_fact_ids'.
-- Return all integrated pending IDs in 'processed_pending_ids'.
-
-YOU MUST RETURN JSON:
-{
-  "updated_experience_markdown": "# Master AI Experience\n...",
-  "processed_pending_ids": [],
-  "superseded_fact_ids": [],
-  "summary_of_changes": "..."
-}
-```
-
-### Running Consolidation with a Custom Template
+### Running Consolidation
 
 ```bash
 # Using external CLI command
-experienced-llms consolidate --template ~/custom_template.md --llm "ollama run mistral"
+experienced-llms consolidate --llm "ollama run mistral"
 
-# Or with configured default command
-experienced-llms consolidate --template ~/custom_template.md
+# Or using configured default command
+experienced-llms consolidate
 ```

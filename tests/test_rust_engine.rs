@@ -460,23 +460,20 @@ fn test_prompt_template_resolution_and_hierarchy() {
 
     // 1. Missing template fails hard
     let missing_tmpl = experienced_llms::consolidator::prompt_template::get_consolidation_template(
-        None,
         Some(&home_path),
     );
-    assert!(missing_tmpl.is_err(), "Must fail hard if template is missing from ~/.experienced-llms/ and no custom path given");
+    assert!(missing_tmpl.is_err(), "Must fail hard if template is missing from ~/.experienced-llms/");
 
     // 2. Default template created via ensure_template_in
     experienced_llms::config::ensure_template_in(&home_path).expect("Failed to ensure template");
     let default_tmpl = experienced_llms::consolidator::prompt_template::get_consolidation_template(
-        None,
         Some(&home_path),
     ).expect("Template should now exist on disk");
     assert!(default_tmpl.contains("You are the master cognitive consolidation engine"));
     assert!(default_tmpl.contains("## 1. User Directives & Preferences"));
     assert!(default_tmpl.contains("## 2. Defensive Safeguards & Heuristics"));
-    assert!(default_tmpl.contains("## 3. Project-Specific Constraints"));
-    assert!(default_tmpl.contains("## 4. Anti-Patterns & Critical Gotchas"));
-    assert!(default_tmpl.contains("## 5. Mistake Corrections & Fixes"));
+    assert!(default_tmpl.contains("## 3. Anti-Patterns & Critical Gotchas"));
+    assert!(default_tmpl.contains("## 4. Mistake Corrections & Fixes"));
     assert!(default_tmpl.contains("{max_words}"));
 
     // 3. User home directory override: ~/.experienced-llms/template.md
@@ -484,28 +481,9 @@ fn test_prompt_template_resolution_and_hierarchy() {
     fs::write(&template_file, "HOME PROMPT TEMPLATE {max_words}").expect("Failed to write home template");
 
     let home_tmpl = experienced_llms::consolidator::prompt_template::get_consolidation_template(
-        None,
         Some(&home_path),
     ).expect("Should load edited template.md");
     assert_eq!(home_tmpl, "HOME PROMPT TEMPLATE {max_words}");
-
-    // 4. Explicit custom path override (--template)
-    let custom_file = home_path.join("custom_template.txt");
-    fs::write(&custom_file, "EXPLICIT TEMPLATE {max_words}").expect("Failed to write custom template");
-
-    let explicit_tmpl = experienced_llms::consolidator::prompt_template::get_consolidation_template(
-        Some(&custom_file),
-        Some(&home_path),
-    ).expect("Should load explicit template");
-    assert_eq!(explicit_tmpl, "EXPLICIT TEMPLATE {max_words}");
-
-    // 5. Explicit custom path that does not exist fails hard
-    let nonexistent_file = home_path.join("does_not_exist.txt");
-    let err = experienced_llms::consolidator::prompt_template::get_consolidation_template(
-        Some(&nonexistent_file),
-        Some(&home_path),
-    );
-    assert!(err.is_err(), "Must fail if custom template file does not exist");
 }
 
 #[test]
@@ -571,7 +549,7 @@ fn test_consolidator_engine_full_lifecycle() {
 
     // 1. Test build_consolidation_prompt
     let (sys_opt, user_opt, meta) = consolidator
-        .build_consolidation_prompt(&conn, Some("2026-10-17"), Some(800), None)
+        .build_consolidation_prompt(&conn, Some("2026-10-17"), Some(800))
         .expect("Failed to build prompt");
 
     assert!(sys_opt.is_some());
@@ -654,7 +632,7 @@ fn test_consolidate_pathway_a_mock_and_abort_resilience() {
         Some(home_path.clone()),
     );
 
-    let result = failing_consolidator.consolidate(None, None, None, None, Some(&db_path));
+    let result = failing_consolidator.consolidate(None, None, None, Some(&db_path));
     assert!(result.is_err(), "Consolidator must abort if LLM returns empty output");
 
     // Verify fact was NOT consolidated and no audit was written
@@ -688,7 +666,7 @@ fn test_consolidate_pathway_a_mock_and_abort_resilience() {
     );
 
     let (master_path, summary) = success_consolidator
-        .consolidate(None, None, None, Some("mock_test"), Some(&db_path))
+        .consolidate(None, None, Some("mock_test"), Some(&db_path))
         .expect("Consolidation should succeed");
 
     assert_eq!(summary, "Mock consolidation success");
@@ -735,7 +713,7 @@ fn test_cli_consolidate_execution_and_template_lifecycle() {
         .expect("Failed to log 2");
     assert!(log2.status.success());
 
-    // 3. Remove template.md and verify consolidation fails hard if no --template given
+    // 3. Remove template.md and verify consolidation fails hard when template is missing
     fs::remove_file(&template_file).expect("Failed to delete template.md");
     let mock_json = serde_json::json!({
         "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n- Consolidated via CLI test\n\n## 2. Defensive Safeguards & Heuristics\n- Defensive safeguard",
@@ -764,25 +742,19 @@ fn test_cli_consolidate_execution_and_template_lifecycle() {
         .args(["consolidate", "--llm", &mock_cmd])
         .output()
         .expect("Failed to run consolidate");
-    assert!(!fail_out.status.success(), "Consolidate must fail if template.md is missing and no --template passed");
+    assert!(!fail_out.status.success(), "Consolidate must fail if template.md is missing");
     let fail_err = String::from_utf8_lossy(&fail_out.stderr);
     assert!(fail_err.contains("Consolidation template missing"));
 
-    // 4. Consolidate succeeds with explicit --template <path> even when template.md is missing
-    let custom_tmpl_file = home_path.join("custom_prompt.txt");
-    fs::write(&custom_tmpl_file, "SPECIAL CLI TEMPLATE {max_words}").expect("Failed to write custom template");
-
-    let custom_out = Command::new(exe)
+    // 4. Verify --template flag is rejected as unknown argument on consolidate
+    let tmpl_reject_out = Command::new(exe)
         .env("EXPERIENCED_LLMS_HOME", &home_path)
-        .args(["consolidate", "--template", custom_tmpl_file.to_str().unwrap(), "--llm", &mock_cmd])
+        .args(["consolidate", "--template", "custom.md", "--llm", &mock_cmd])
         .output()
-        .expect("Failed to run consolidate with custom template");
-    assert!(
-        custom_out.status.success(),
-        "stderr: {}, stdout: {}",
-        String::from_utf8_lossy(&custom_out.stderr),
-        String::from_utf8_lossy(&custom_out.stdout)
-    );
+        .expect("Failed to test --template rejection");
+    assert!(!tmpl_reject_out.status.success(), "--template must be rejected as unknown argument");
+    let tmpl_err = String::from_utf8_lossy(&tmpl_reject_out.stderr);
+    assert!(tmpl_err.contains("unexpected argument '--template'") || tmpl_err.contains("unexpected argument"));
 
     // 5. Calling init again restores template.md without destroying existing database facts
     let init2_out = Command::new(exe)

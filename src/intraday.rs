@@ -8,7 +8,7 @@ use crate::models::{FactCategory, FactStatus, MemoryFact};
 
 /// Record an operational rule or mistake correction directly into SQLite memory_facts
 /// with is_consolidated = 0.
-/// 100% deterministic, instant, free, and operates completely offline.
+/// 100% deterministic, instant, free, and operates directly with local SQLite storage.
 pub fn log_intraday(
     rule_statement: &str,
     category: FactCategory,
