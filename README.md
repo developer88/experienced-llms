@@ -93,8 +93,9 @@ experienced-llms show
 # Using external CLI tool (e.g. agy, claude, ollama)
 experienced-llms consolidate --llm "agy query"
 
-# Or using configured API provider (gemini, claude, openai, ollama)
-experienced-llms consolidate --provider gemini
+# Or configure default LLM CLI command once:
+experienced-llms setup --llm "agy query"
+experienced-llms consolidate
 ```
 
 ### 4. Re-render EXPERIENCE.md from SQLite Facts
@@ -128,11 +129,11 @@ For detailed architecture, JSON schemas, and domain-specific examples, see [Cons
 | Command | Arguments / Flags | Description |
 |---|---|---|
 | `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an intraday heuristic (fast, offline, local) |
-| `experienced-llms consolidate` | `--date`, `--provider`, `--llm`, `--max-words`, `--template` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
+| `experienced-llms consolidate` | `--date`, `--llm`, `--max-words`, `--template` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
 | `experienced-llms render` | *(None)* | Rebuild clean `EXPERIENCE.md` directly from active SQLite facts |
 | `experienced-llms show` | *(None)* | Print active `~/.experienced-llms/EXPERIENCE.md` |
 | `experienced-llms status` | *(None)* | Show active facts, auto-skills, and schedule state |
-| `experienced-llms setup` | `--provider`, `--key`, `--model` | Configure LLM providers and credentials |
+| `experienced-llms setup` | `--llm`, `--max-words` | Configure default external LLM CLI command and settings |
 | `experienced-llms schedule` | `--install`, `--uninstall`, `--status`, `--time`, `--type` | Manage scheduled nightly consolidation daemon |
 | `experienced-llms prompt` | `--target`, `--skill`, `--scope` | Generate ready-to-inject prompt for orchestrator or worker |
 | `experienced-llms integrate` | `--target`, `--workspace` | Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi) |

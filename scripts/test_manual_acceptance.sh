@@ -110,44 +110,29 @@ fi
 echo "[✔] Step 4 PASSED: Re-running 'init' is safe and preserved existing facts."
 
 # ------------------------------------------------------------------------------
-# Step 5: Template Fail-Hard Guarantee
+# Step 5: Template Fail-Hard Guarantee & Missing LLM Validation
 # ------------------------------------------------------------------------------
 echo ""
-echo "--- [Step 5] Testing Template Fail-Hard Guarantee ---"
-rm -f "${EXPERIENCED_LLMS_HOME}/template.md"
+echo "--- [Step 5] Testing Missing LLM Validation and Template Fail-Hard Guarantee ---"
 
+# 5a. Consolidate without LLM must fail cleanly
 set +e
-FAIL_OUTPUT="$("${BIN}" consolidate 2>&1)"
-FAIL_EXIT=$?
+NO_LLM_OUTPUT="$("${BIN}" consolidate 2>&1)"
+NO_LLM_EXIT=$?
 set -e
 
-if [ "${FAIL_EXIT}" -eq 0 ]; then
-    echo "[-] FAILED: consolidate should have failed when template.md is missing!"
+if [ "${NO_LLM_EXIT}" -eq 0 ]; then
+    echo "[-] FAILED: consolidate should fail when no LLM command is provided!"
     exit 1
 fi
-
-if echo "${FAIL_OUTPUT}" | grep -qi "template"; then
-    echo "[✔] Step 5 PASSED: Engine failed hard with expected template error:"
-    echo "    ${FAIL_OUTPUT}"
+if echo "${NO_LLM_OUTPUT}" | grep -qi "No external LLM CLI command configured"; then
+    echo "[✔] Step 5a PASSED: Engine cleanly required --llm command:"
+    echo "    ${NO_LLM_OUTPUT}"
 else
-    echo "[-] FAILED: Error message did not mention template:"
-    echo "    ${FAIL_OUTPUT}"
+    echo "[-] FAILED: Unexpected error message when no LLM provided:"
+    echo "    ${NO_LLM_OUTPUT}"
     exit 1
 fi
-
-# Restore template via init
-"${BIN}" init
-if [ ! -f "${EXPERIENCED_LLMS_HOME}/template.md" ]; then
-    echo "[-] FAILED: 'init' did not restore missing template.md"
-    exit 1
-fi
-echo "[✔] Step 5b PASSED: 'init' restored missing template.md."
-
-# ------------------------------------------------------------------------------
-# Step 6: Consolidation via External LLM Pipe
-# ------------------------------------------------------------------------------
-echo ""
-echo "--- [Step 6] Testing consolidation with external LLM CLI mock ---"
 
 # Create a mock LLM that produces compliant JSON
 MOCK_LLM_SCRIPT="${ACCEPT_DIR}/mock_llm.sh"
@@ -163,6 +148,42 @@ cat << 'JSON'
 JSON
 EOF
 chmod +x "${MOCK_LLM_SCRIPT}"
+
+# 5b. Consolidate with LLM but missing template must fail hard
+rm -f "${EXPERIENCED_LLMS_HOME}/template.md"
+
+set +e
+FAIL_OUTPUT="$("${BIN}" consolidate --llm "bash ${MOCK_LLM_SCRIPT}" 2>&1)"
+FAIL_EXIT=$?
+set -e
+
+if [ "${FAIL_EXIT}" -eq 0 ]; then
+    echo "[-] FAILED: consolidate should have failed when template.md is missing!"
+    exit 1
+fi
+
+if echo "${FAIL_OUTPUT}" | grep -qi "template"; then
+    echo "[✔] Step 5b PASSED: Engine failed hard with expected template error:"
+    echo "    ${FAIL_OUTPUT}"
+else
+    echo "[-] FAILED: Error message did not mention template:"
+    echo "    ${FAIL_OUTPUT}"
+    exit 1
+fi
+
+# Restore template via init
+"${BIN}" init
+if [ ! -f "${EXPERIENCED_LLMS_HOME}/template.md" ]; then
+    echo "[-] FAILED: 'init' did not restore missing template.md"
+    exit 1
+fi
+echo "[✔] Step 5c PASSED: 'init' restored missing template.md."
+
+# ------------------------------------------------------------------------------
+# Step 6: Consolidation via External LLM Pipe
+# ------------------------------------------------------------------------------
+echo ""
+echo "--- [Step 6] Testing consolidation with external LLM CLI mock ---"
 
 "${BIN}" consolidate --llm "bash ${MOCK_LLM_SCRIPT}"
 
@@ -231,6 +252,30 @@ if [ "${APPLY_EXIT}" -eq 0 ]; then
 fi
 
 echo "[✔] Step 8 PASSED: --prepare and --apply flags are completely rejected."
+
+# ------------------------------------------------------------------------------
+# Step 9: Verification of Removed Cloud Provider Flags & Default LLM Config
+# ------------------------------------------------------------------------------
+echo ""
+echo "--- [Step 9] Verifying removal of --provider and setup --llm functionality ---"
+
+set +e
+"${BIN}" consolidate --provider gemini > /dev/null 2>&1
+PROVIDER_EXIT=$?
+set -e
+
+if [ "${PROVIDER_EXIT}" -eq 0 ]; then
+    echo "[-] FAILED: --provider should be rejected as an unknown argument on consolidate!"
+    exit 1
+fi
+
+# Configure default external LLM command via setup
+"${BIN}" setup --llm "bash ${MOCK_LLM_SCRIPT}" --max-words 1200
+
+# Verify consolidation runs cleanly using configured default command without explicit --llm flag
+"${BIN}" consolidate
+
+echo "[✔] Step 9 PASSED: --provider flag rejected, and setup --llm default configuration verified."
 
 echo ""
 echo "================================================================="

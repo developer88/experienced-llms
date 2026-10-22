@@ -102,11 +102,13 @@ impl LLMClient for ExternalCommandLLMClient {
     }
 }
 
+#[allow(dead_code)]
 pub struct GeminiClient {
     pub api_key: String,
     pub model: String,
 }
 
+#[allow(dead_code)]
 impl GeminiClient {
     pub fn new(api_key: impl Into<String>, model: impl Into<String>) -> Self {
         Self {
@@ -175,11 +177,13 @@ impl LLMClient for GeminiClient {
     }
 }
 
+#[allow(dead_code)]
 pub struct ClaudeClient {
     pub api_key: String,
     pub model: String,
 }
 
+#[allow(dead_code)]
 impl ClaudeClient {
     pub fn new(api_key: impl Into<String>, model: impl Into<String>) -> Self {
         Self {
@@ -237,12 +241,14 @@ impl LLMClient for ClaudeClient {
     }
 }
 
+#[allow(dead_code)]
 pub struct OpenAIClient {
     pub api_key: String,
     pub model: String,
     pub base_url: String,
 }
 
+#[allow(dead_code)]
 impl OpenAIClient {
     pub fn new(
         api_key: impl Into<String>,
@@ -311,11 +317,13 @@ impl LLMClient for OpenAIClient {
     }
 }
 
+#[allow(dead_code)]
 pub struct OllamaClient {
     pub base_url: String,
     pub model: String,
 }
 
+#[allow(dead_code)]
 impl OllamaClient {
     pub fn new(base_url: impl Into<String>, model: impl Into<String>) -> Self {
         Self {
@@ -397,57 +405,24 @@ impl LLMClient for MockLLMClient {
 }
 
 pub fn get_llm_client(
-    provider: Option<&str>,
     external_cmd: Option<&str>,
 ) -> Result<Box<dyn LLMClient>, Box<dyn std::error::Error>> {
     if let Some(cmd) = external_cmd {
-        if !cmd.trim().is_empty() {
-            return Ok(Box::new(ExternalCommandLLMClient::new(cmd)?));
-        }
-    }
-
-    if let Some(p) = provider {
-        if let Some(stripped) = p.strip_prefix("cmd:") {
-            return Ok(Box::new(ExternalCommandLLMClient::new(stripped)?));
+        let trimmed = cmd.trim();
+        if !trimmed.is_empty() {
+            let actual_cmd = trimmed.strip_prefix("cmd:").unwrap_or(trimmed);
+            return Ok(Box::new(ExternalCommandLLMClient::new(actual_cmd)?));
         }
     }
 
     let cfg = config::load_config();
-    if provider.is_none() {
-        if let Some(ref configured_cmd) = cfg.external_llm_cmd {
-            if !configured_cmd.trim().is_empty() {
-                return Ok(Box::new(ExternalCommandLLMClient::new(configured_cmd)?));
-            }
+    if let Some(ref configured_cmd) = cfg.external_llm_cmd {
+        let trimmed = configured_cmd.trim();
+        if !trimmed.is_empty() {
+            let actual_cmd = trimmed.strip_prefix("cmd:").unwrap_or(trimmed);
+            return Ok(Box::new(ExternalCommandLLMClient::new(actual_cmd)?));
         }
     }
 
-    let selected_provider = provider
-        .unwrap_or(&cfg.provider)
-        .trim()
-        .to_lowercase();
-
-    match selected_provider.as_str() {
-        "gemini" => Ok(Box::new(GeminiClient::new(
-            &cfg.gemini_api_key,
-            &cfg.gemini_model,
-        ))),
-        "claude" => Ok(Box::new(ClaudeClient::new(
-            &cfg.claude_api_key,
-            &cfg.claude_model,
-        ))),
-        "openai" => Ok(Box::new(OpenAIClient::new(
-            &cfg.openai_api_key,
-            &cfg.openai_model,
-            &cfg.openai_base_url,
-        ))),
-        "ollama" => Ok(Box::new(OllamaClient::new(
-            &cfg.ollama_base_url,
-            &cfg.ollama_model,
-        ))),
-        unknown => Err(format!(
-            "Unknown provider '{}'. Supported: gemini, claude, openai, ollama, or external command via --llm / cmd: prefix.",
-            unknown
-        )
-        .into()),
-    }
+    Err("No external LLM CLI command configured. Provide --llm '<command>' (e.g. --llm \"agy query\" or --llm \"ollama run mistral\") or configure default via 'experienced-llms setup --llm \"<command>\"'.".into())
 }

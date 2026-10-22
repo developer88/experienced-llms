@@ -803,6 +803,32 @@ fn test_cli_consolidate_execution_and_template_lifecycle() {
     let show_str = String::from_utf8_lossy(&show_out.stdout);
     assert!(show_str.contains("First test rule for consolidation"));
     assert!(show_str.contains("Second test rule for consolidation"));
+
+    // 7. Verify --provider flag is rejected as unknown argument on consolidate
+    let provider_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["consolidate", "--provider", "gemini"])
+        .output()
+        .expect("Failed to run consolidate with provider");
+    assert!(!provider_out.status.success(), "--provider should be rejected as unknown argument");
+    let provider_err = String::from_utf8_lossy(&provider_out.stderr);
+    assert!(provider_err.contains("unexpected argument '--provider'") || provider_err.contains("unexpected argument"));
+
+    // 8. Test setup --llm configures external_llm_cmd in config.json
+    let setup_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["setup", "--llm", &mock_cmd, "--max-words", "1000"])
+        .output()
+        .expect("Failed to run setup");
+    assert!(setup_out.status.success(), "setup --llm must succeed");
+
+    // 9. Consolidate without --llm succeeds using configured external_llm_cmd
+    let consolidate_cfg_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .arg("consolidate")
+        .output()
+        .expect("Failed to run consolidate with configured external LLM");
+    assert!(consolidate_cfg_out.status.success(), "consolidate using configured LLM must succeed");
 }
 
 #[test]

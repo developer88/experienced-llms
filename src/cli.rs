@@ -59,19 +59,15 @@ pub enum Commands {
     /// Show active facts, auto-skills, and schedule state
     Status,
 
-    /// Configure LLM providers and paths
+    /// Configure default external LLM CLI command and settings
     Setup {
-        /// Provider name (gemini, claude, openai, ollama)
-        #[arg(long = "provider")]
-        provider: Option<String>,
+        /// External LLM CLI command (e.g. 'agy query', 'claude', 'ollama run mistral')
+        #[arg(long = "llm")]
+        llm: Option<String>,
 
-        /// API key for selected provider
-        #[arg(long = "key")]
-        key: Option<String>,
-
-        /// Model identifier
-        #[arg(long = "model")]
-        model: Option<String>,
+        /// Maximum word count for master experience document
+        #[arg(long = "max-words")]
+        max_words: Option<usize>,
     },
 
     /// Generate ready-to-inject prompt for LLMs
@@ -115,10 +111,6 @@ pub enum Commands {
         /// Target date YYYY-MM-DD
         #[arg(short = 'd', long = "date")]
         date: Option<String>,
-
-        /// Provider name (gemini, claude, openai, ollama)
-        #[arg(short = 'p', long = "provider")]
-        provider: Option<String>,
 
         /// External CLI LLM command (e.g. 'agy query', 'claude', 'ollama run mistral')
         #[arg(long = "llm")]
@@ -170,8 +162,8 @@ pub enum Commands {
         #[arg(long = "scope", default_value = "global")]
         scope: String,
 
-        #[arg(long = "provider")]
-        provider: Option<String>,
+        #[arg(long = "llm")]
+        llm: Option<String>,
     },
 
     /// Synthesize JIT skills
@@ -290,42 +282,19 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        Commands::Setup { provider, key, model } => {
+        Commands::Setup { llm, max_words } => {
             let mut cfg = config::load_config();
-            if let Some(p) = provider {
-                cfg.provider = p;
+            if let Some(cmd) = llm {
+                cfg.external_llm_cmd = Some(cmd);
             }
-            if let Some(k) = key {
-                match cfg.provider.as_str() {
-                    "claude" => cfg.claude_api_key = k,
-                    "openai" => cfg.openai_api_key = k,
-                    _ => cfg.gemini_api_key = k,
-                }
-            }
-            if let Some(m) = model {
-                match cfg.provider.as_str() {
-                    "claude" => cfg.claude_model = m,
-                    "openai" => cfg.openai_model = m,
-                    "ollama" => cfg.ollama_model = m,
-                    _ => cfg.gemini_model = m,
-                }
+            if let Some(mw) = max_words {
+                cfg.max_experience_words = mw;
             }
 
             config::save_config(&cfg)?;
             println!("Configuration saved to {}:", config::get_config_file().display());
 
-            let mut safe_cfg = cfg.clone();
-            if !safe_cfg.gemini_api_key.is_empty() {
-                safe_cfg.gemini_api_key = mask_key(&safe_cfg.gemini_api_key);
-            }
-            if !safe_cfg.claude_api_key.is_empty() {
-                safe_cfg.claude_api_key = mask_key(&safe_cfg.claude_api_key);
-            }
-            if !safe_cfg.openai_api_key.is_empty() {
-                safe_cfg.openai_api_key = mask_key(&safe_cfg.openai_api_key);
-            }
-
-            let json_str = serde_json::to_string_pretty(&safe_cfg)?;
+            let json_str = serde_json::to_string_pretty(&cfg)?;
             println!("{}", json_str);
         }
 
@@ -383,14 +352,13 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
 
         Commands::Consolidate {
             date,
-            provider,
             llm,
             max_words,
             template,
         } => {
             let template_path = template.as_deref().map(Path::new);
 
-            let client = match llm_client::get_llm_client(provider.as_deref(), llm.as_deref()) {
+            let client = match llm_client::get_llm_client(llm.as_deref()) {
                 Ok(c) => c,
                 Err(e) => {
                     eprintln!("[-] Consolidation aborted without mutating facts: {}", e);
@@ -399,7 +367,7 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let consolidator = consolidator::InterdayConsolidator::new(Some(client));
-            let engine_type = if llm.is_some() { "cli_external_cmd" } else { "api_client" };
+            let engine_type = "cli_external_cmd";
             match consolidator.consolidate(
                 date.as_deref(),
                 max_words,
@@ -462,10 +430,4 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn mask_key(k: &str) -> String {
-    if k.len() > 10 {
-        format!("{}...{}", &k[..6], &k[k.len() - 4..])
-    } else {
-        "***".to_string()
-    }
-}
+

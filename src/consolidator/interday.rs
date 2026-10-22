@@ -294,7 +294,7 @@ impl InterdayConsolidator {
         let client = self
             .llm_client
             .as_ref()
-            .ok_or("Consolidation requires an LLM client. Pass --llm '<cmd>' or configure provider.")?;
+            .ok_or("Consolidation requires an LLM client. Pass --llm '<cmd>' or configure default via 'experienced-llms setup --llm \"<cmd>\"'.")?;
 
         if self.home_dir.is_none() {
             config::ensure_directories()?;

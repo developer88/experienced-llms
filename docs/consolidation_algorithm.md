@@ -132,9 +132,9 @@ YOU MUST RETURN JSON:
 ### Running Consolidation with a Custom Template
 
 ```bash
-# Using external CLI
+# Using external CLI command
 experienced-llms consolidate --template ~/custom_template.md --llm "ollama run mistral"
 
-# Using configured provider
-experienced-llms consolidate --template ~/custom_template.md --provider gemini
+# Or with configured default command
+experienced-llms consolidate --template ~/custom_template.md
 ```

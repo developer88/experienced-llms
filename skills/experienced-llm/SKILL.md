@@ -65,8 +65,9 @@ Runs automatically via cron or Windows Task Scheduler, or on demand via terminal
 # Using external CLI tool (e.g. agy, claude, ollama)
 experienced-llms consolidate --llm "agy query"
 
-# Or using configured API provider (gemini, claude, openai, ollama)
-experienced-llms consolidate --provider gemini
+# Or configure default LLM command once:
+experienced-llms setup --llm "agy query"
+experienced-llms consolidate
 ```
 
 ### Consolidation Configuration Options:
