@@ -124,14 +124,6 @@ pub enum Commands {
         #[arg(long = "llm")]
         llm: Option<String>,
 
-        /// Pathway B: Generate and output consolidation prompt JSON payload without calling LLM
-        #[arg(long = "prepare")]
-        prepare: bool,
-
-        /// Pathway B: Apply structured consolidation JSON payload (string or file path)
-        #[arg(long = "apply")]
-        apply: Option<String>,
-
         /// Override maximum words ceiling for EXPERIENCE.md (default: 1200)
         #[arg(long = "max-words")]
         max_words: Option<usize>,
@@ -196,8 +188,11 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Init { db_path } => {
             println!("Initializing Experienced LLMs...");
             config::ensure_directories()?;
+            config::ensure_template_in(&config::get_experienced_home())?;
             db::init_db(db_path.as_deref())?;
+            let (count, _) = renderer::rebuild_master_experience(db_path.as_deref(), None)?;
             println!("Initialized Experienced LLMs at: {}", config::get_experienced_home().display());
+            println!("Rendered active experience with {} facts.", count);
         }
 
         Commands::Migrate => {
@@ -390,48 +385,11 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             date,
             provider,
             llm,
-            prepare,
-            apply,
             max_words,
             template,
         } => {
             let template_path = template.as_deref().map(Path::new);
 
-            // Pathway B - Step 1: --prepare
-            if prepare {
-                let conn = db::get_connection(None)?;
-                let consolidator = consolidator::InterdayConsolidator::new(None);
-                let (sys_opt, user_opt, metadata) = consolidator.build_consolidation_prompt(
-                    &conn,
-                    date.as_deref(),
-                    max_words,
-                    template_path,
-                )?;
-
-                let payload = consolidator::ConsolidationPreparePayload {
-                    metadata,
-                    system_prompt: sys_opt.unwrap_or_default(),
-                    user_prompt: user_opt.unwrap_or_default(),
-                };
-                println!("{}", serde_json::to_string_pretty(&payload)?);
-                return Ok(());
-            }
-
-            // Pathway B - Step 3: --apply
-            if let Some(apply_payload) = apply {
-                let mut conn = db::get_connection(None)?;
-                let consolidator = consolidator::InterdayConsolidator::new(None);
-                let (master_path, summary) = consolidator.apply_consolidation_result(
-                    &mut conn,
-                    &apply_payload,
-                    "agent_skill",
-                )?;
-                println!("[✓] Consolidation applied successfully: {}", master_path.display());
-                println!("[✓] Summary: {}", summary);
-                return Ok(());
-            }
-
-            // Pathway A: Tooling / CLI / Scheduler Driven
             let client = match llm_client::get_llm_client(provider.as_deref(), llm.as_deref()) {
                 Ok(c) => c,
                 Err(e) => {

@@ -6,7 +6,7 @@
 
 ## 1. The Consolidation Cycle
 
-Consolidation runs either autonomously via a nightly daemon (**Pathway A**) or directly inside agent cognitive workflows (**Pathway B**):
+Consolidation runs either autonomously via a scheduled daemon (cron or Windows Task Scheduler) or on demand via the CLI:
 
 ```
        [ Intraday Capture ]
@@ -18,7 +18,7 @@ Consolidation runs either autonomously via a nightly daemon (**Pathway A**) or d
                  │
                  ▼
       [ Consolidation Engine ]
-  (InterdayConsolidator / LLM)
+  (Reads ~/.experienced-llms/template.md)
                  │
        ┌─────────┴─────────┐
        ▼                   ▼
@@ -61,7 +61,7 @@ Agent context windows are finite and expensive.
 
 ## 3. Consolidation JSON Output Schema
 
-When the LLM runs consolidation (either via CLI or agent skill), it produces a structured JSON response:
+When the LLM runs consolidation, it produces a structured JSON response:
 
 ```json
 {
@@ -87,11 +87,13 @@ When the LLM runs consolidation (either via CLI or agent skill), it produces a s
 
 Users can customize or completely replace the consolidation instructions to suit specialized environments (e.g., enterprise compliance, game development, microservice architectures).
 
-### Template Resolution Order
+### Template Resolution Order & Fail-Hard Guarantee
 
 1. **CLI Flag (`--template <path>`)**: Explicit path passed to `experienced-llms consolidate`.
-2. **User Home File (`~/.experienced-llms/consolidation_prompt.txt`)**: Custom prompt persisted for all automated/scheduled runs.
-3. **Default Built-in Template**: Defined in `src/consolidator/prompt_template.py`.
+2. **Default File on Disk (`~/.experienced-llms/template.md`)**: Created automatically during `experienced-llms init`.
+
+> [!IMPORTANT]
+> Experienced LLMs will **fail hard** with an exit error if `~/.experienced-llms/template.md` is missing and no `--template` path is provided. No hidden fallback prompt is used.
 
 ### Template Variables
 
@@ -100,9 +102,9 @@ Your custom template can include the following placeholder:
 
 ### Example Custom Template
 
-Create `~/.experienced-llms/consolidation_prompt.txt`:
+Create `~/custom_template.md`:
 
-```text
+```markdown
 You are the consolidation engine for our Mobile Development team.
 Synthesize new learnings and update EXPERIENCE.md under {max_words} words.
 
@@ -120,23 +122,19 @@ RULES:
 
 YOU MUST RETURN JSON:
 {
-  "updated_experience_markdown": "# Master AI Experience\\n...",
+  "updated_experience_markdown": "# Master AI Experience\n...",
   "processed_pending_ids": [],
   "superseded_fact_ids": [],
   "summary_of_changes": "..."
 }
 ```
 
-### Testing Your Custom Template
-
-Preview the prompt payload without calling an LLM:
+### Running Consolidation with a Custom Template
 
 ```bash
-experienced-llms consolidate --template ./my-template.txt --prepare
-```
+# Using external CLI
+experienced-llms consolidate --template ~/custom_template.md --llm "ollama run mistral"
 
-Run a consolidation using the custom template:
-
-```bash
-experienced-llms consolidate --template ./my-template.txt --llm "ollama run mistral"
+# Using configured provider
+experienced-llms consolidate --template ~/custom_template.md --provider gemini
 ```

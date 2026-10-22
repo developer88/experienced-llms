@@ -24,6 +24,32 @@ pub const STARTER_EXPERIENCE_TEMPLATE: &str = r#"# Master AI Experience
 - (None recorded yet)
 "#;
 
+pub const DEFAULT_CONSOLIDATION_TEMPLATE: &str = r##"You are the master cognitive consolidation engine for Experienced LLMs.
+Your job is to merge new pending intraday facts with active memory and the current EXPERIENCE.md into a single, authoritative, high-density EXPERIENCE.md document.
+
+CANONICAL SECTIONS (Maintain these exact 5 headers in this order):
+# Master AI Experience
+## 1. User Directives & Preferences
+## 2. Defensive Safeguards & Heuristics
+## 3. Project-Specific Constraints
+## 4. Anti-Patterns & Critical Gotchas
+## 5. Mistake Corrections & Fixes
+
+CRITICAL CONSOLIDATION RULES:
+1. Semantic Deduplication: Merge redundant, overlapping, or paraphrased points into sharp, concise directives.
+2. Contradiction Resolution: If a pending rule invalidates, corrects, or replaces an older active rule, mark the older rule's ID in superseded_fact_ids.
+3. Maximum Word Count: Keep the entire output lean and operational (under {max_words} words).
+4. Zero Token Waste: Absolutely ZERO HTML comments (no <!-- ... -->), zero generation timestamps, zero conversational preamble or markdown code fence wrappers in the JSON string.
+
+YOU MUST RETURN A VALID JSON OBJECT MATCHING THIS SCHEMA:
+{
+  "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n...",
+  "processed_pending_ids": [list of pending fact IDs integrated],
+  "superseded_fact_ids": [list of older active fact IDs superseded],
+  "summary_of_changes": "1-2 sentences summarizing changes made"
+}
+"##;
+
 pub fn resolve_path(p: impl AsRef<Path>) -> PathBuf {
     let p_ref = p.as_ref();
     let p_str = p_ref.to_string_lossy();
@@ -83,6 +109,10 @@ pub fn get_config_file() -> PathBuf {
 
 pub fn get_master_experience_file() -> PathBuf {
     get_experienced_home().join("EXPERIENCE.md")
+}
+
+pub fn get_template_file() -> PathBuf {
+    get_experienced_home().join("template.md")
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -208,16 +238,28 @@ pub fn save_config(config: &Config) -> std::io::Result<()> {
     fs::write(get_config_file(), content)
 }
 
-pub fn ensure_directories() -> std::io::Result<()> {
-    let home = get_experienced_home();
-    fs::create_dir_all(&home)?;
+pub fn ensure_template_in(home: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(home)?;
+    let template_file = home.join("template.md");
+    if !template_file.exists() {
+        fs::write(&template_file, DEFAULT_CONSOLIDATION_TEMPLATE)?;
+    }
+    Ok(())
+}
 
-    let db_path = get_db_path();
+pub fn ensure_directories() -> std::io::Result<()> {
+    ensure_directories_in(&get_experienced_home())
+}
+
+pub fn ensure_directories_in(home: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(home)?;
+
+    let db_path = home.join("memory.db");
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent)?;
     }
 
-    let master_exp = get_master_experience_file();
+    let master_exp = home.join("EXPERIENCE.md");
     if !master_exp.exists() {
         let _ = fs::write(master_exp, STARTER_EXPERIENCE_TEMPLATE);
     }

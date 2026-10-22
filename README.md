@@ -8,60 +8,34 @@
 [![Version: 1.0.0rc4](https://img.shields.io/badge/Version-1.0.0rc4-green.svg)](https://github.com/developer88/experienced-llms/releases)
 [![AgenticSkills: S-Rank](https://img.shields.io/badge/AgenticSkills-Compliant-orange.svg)](https://agenticskills.io/methodology)
 
-This is not an AI memory, the goal is to add self-education to LLM agents. We give AI tools and abilities via Skills and MCP, we modify some of their behaviour via `AGENTS.md`, but tailoring it further is hard and time consuming.
-
-Let's give AI a tool to learn on our feedback from day to day. It will not replace `AGENTS.md`, nor Skills or MCPs, but it will significantly improve your local agents and make them more tailored to you.
-
-This is a compiled production ready result of my 6 month experiment, that just works.
+Let's give AI a tool to learn from our feedback day to day. It does not replace `AGENTS.md`, nor Skills or MCPs, but significantly improves your local agents and makes them tailored to your personal workflows.
 
 ---
 
-## 🔒 Privacy-First: Two Files Only
+## 🔒 2-Component Architecture & Privacy
 
-Experienced LLMs is built with a strict privacy guarantee:
-- **Zero repository scanning**: It never indexes, inspects, or uploads your workspace source code, private files, or git commit history.
-- **Zero workspace pollution**: It never injects hidden dotfiles or configuration directories into your code repositories.
-- **100% Contained to Two Files**: Everything lives strictly inside your user home directory `~/.experienced-llms/`:
-  1. `~/.experienced-llms/memory.db`: Local SQLite database (WAL mode) storing structured heuristic ledgers, sessions, migrations, and consolidation audits.
-  2. `~/.experienced-llms/EXPERIENCE.md`: Single, authoritative, consolidated operational rulebook injected into agents on startup.
+Experienced LLMs operates with a strict privacy guarantee and a clean 2-component footprint:
+
+1. **Local Skill & Storage Engine (`~/.experienced-llms/`)**:
+   - `memory.db`: Local SQLite database (WAL mode) tracking all operational heuristics, sessions, and consolidation history.
+   - `EXPERIENCE.md`: Single, authoritative, consolidated operational rulebook rendered for agents.
+   - `template.md`: Default consolidation instructions and taxonomy required on disk.
+   - Zero repository scanning: Never indexes, inspects, or uploads workspace code or git history.
+   - Zero workspace pollution: No hidden dotfiles or config directories in project folders.
+
+2. **Injected Agent Instructions**:
+   - Lightweight skill instructions injected into your LLM agents (Antigravity, Claude, Copilot, Cursor, Pi).
+   - Directs the agent to consult `EXPERIENCE.md` on startup and log corrections or workflow preferences during development.
 
 ---
 
-## 🏗️ Architecture: Dual Consolidation Engine
+## 🏗️ How It Works
 
-```mermaid
-flowchart TD
-    subgraph Daytime ["Daytime Operational Logging (100% Offline Local Tool)"]
-        Agent["AI Agent / Developer"] -->|"experienced-llms log '<rule>' --reason '<why>' --category ..."| DB[("~/.experienced-llms/memory.db<br/>(is_consolidated = 0)")]
-    end
+1. **Daytime Logging (Offline)**: During normal work, you or your agent log lessons and constraints using `experienced-llms log "<directive>" --reason "<why>"`. It executes locally in milliseconds into SQLite with zero token waste.
+2. **Consolidation (LLM)**: On a nightly schedule (or on demand), `experienced-llms consolidate` reads pending facts, synthesizes and deduplicates them using `~/.experienced-llms/template.md`, and supersedes outdated rules.
+3. **Continuous Execution**: The resulting high-density `EXPERIENCE.md` is immediately available to all your local AI agents on their next prompt.
 
-    subgraph Consolidation ["LLM Consolidation Engine (Zero Token Waste)"]
-        direction TB
-        subgraph CoreEngine ["Core Consolidation Cycle"]
-            Prep["1. Prepare: experienced-llms consolidate --prepare<br/>(Structured prompt payload)"]
-            Reason["2. Reason: Synthesize & Deduplicate<br/>(Via Agent or CLI LLM)"]
-            Apply["3. Apply: experienced-llms consolidate --apply '<payload>'<br/>(Updates SQLite & EXPERIENCE.md)"]
-            Prep --> Reason --> Apply
-        end
-
-        subgraph Triggers ["Execution Pathways"]
-            PathwayB["Pathway B: In-Session Agent Reasoning<br/>(Autonomous Task)"] --> Prep
-            PathwayA["Pathway A: Nightly Scheduled Daemon<br/>(Cron / Task Scheduler)"] -->|"experienced-llms consolidate [--llm '<cmd>']"| CoreEngine
-        end
-    end
-
-    DB <--> CoreEngine
-    Apply -->|"Render clean markdown"| OutputFile["~/.experienced-llms/EXPERIENCE.md"]
-```
-
-### 1. Daytime Operational Capture (100% Offline, Local CLI Tool)
-When an agent or developer records a correction or project preference, the rule is stored directly in `~/.experienced-llms/memory.db` with `is_consolidated = 0`. The CLI tool runs instantly and offline without invoking external LLM APIs.
-
-### 2. Autonomous Consolidation (LLM-Only)
-Nightly or on demand, consolidation merges pending facts into the active rulebook:
-- Deduplicates and generalizes heuristics across the 5 canonical sections.
-- Resolves contradictions by marking outdated rules as superseded in SQLite.
-- Strips HTML comments and timestamps to guarantee zero token waste.
+For detailed architecture diagrams and design specifications, see [System Architecture](docs/ARCHITECTURE.md).
 
 ---
 
@@ -78,14 +52,6 @@ curl -fsSL https://github.com/developer88/experienced-llms/releases/latest/downl
 ```powershell
 irm https://github.com/developer88/experienced-llms/releases/latest/download/install.ps1 | iex
 ```
-
-The installer automatically:
-1. Detects your operating system and architecture (`x86_64`, `aarch64`, macOS Apple Silicon / Intel, Windows).
-2. Installs the high-performance standalone native Rust binary to `~/.local/bin/` (or Windows user programs directory).
-3. Configures your user profile `PATH` (`.bashrc`, `.zshrc`, or Windows Environment).
-4. Initializes local SQLite storage at `~/.experienced-llms/memory.db`.
-5. Connects agent skills for Antigravity, Claude, Copilot, Cursor, and Pi.
-6. Configures the automated nightly consolidation daemon (cron or Windows Task Scheduler).
 
 ---
 
@@ -149,9 +115,9 @@ The cognitive consolidation engine distills daytime learnings into high-density 
 4. **Token Density & Word Ceiling**: Restricts output length (`--max-words`, default 1200 words) with zero HTML comments or timestamps.
 
 ### Custom Prompt Templates
-You can customize consolidation instructions and section taxonomy:
-- **Global override**: Place your template at `~/.experienced-llms/consolidation_prompt.txt`.
-- **One-off override**: Use `experienced-llms consolidate --template /path/to/template.txt`.
+Consolidation instructions and section taxonomies are governed by a markdown template:
+- **Default location**: `~/.experienced-llms/template.md` (created during `experienced-llms init`). The engine requires this file to exist on disk.
+- **Custom override**: Specify an explicit path via `experienced-llms consolidate --template /path/to/template.md`.
 
 For detailed architecture, JSON schemas, and domain-specific examples, see [Consolidation Algorithm Guide](docs/consolidation_algorithm.md).
 
@@ -162,9 +128,7 @@ For detailed architecture, JSON schemas, and domain-specific examples, see [Cons
 | Command | Arguments / Flags | Description |
 |---|---|---|
 | `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an intraday heuristic (fast, offline, local) |
-| `experienced-llms consolidate` | `--date`, `--provider`, `--llm`, `--max-words`, `--template` | Consolidate pending facts into `EXPERIENCE.md` via LLM (Pathway A) |
-| `experienced-llms consolidate --prepare` | `--date`, `--max-words`, `--template` | Output prompt payload for in-session agent reasoning (Pathway B step 1) |
-| `experienced-llms consolidate --apply '<payload>'` | (Accepts JSON string or file path) | Apply structured consolidation payload to SQLite and markdown (Pathway B step 3) |
+| `experienced-llms consolidate` | `--date`, `--provider`, `--llm`, `--max-words`, `--template` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
 | `experienced-llms render` | *(None)* | Rebuild clean `EXPERIENCE.md` directly from active SQLite facts |
 | `experienced-llms show` | *(None)* | Print active `~/.experienced-llms/EXPERIENCE.md` |
 | `experienced-llms status` | *(None)* | Show active facts, auto-skills, and schedule state |
@@ -173,7 +137,7 @@ For detailed architecture, JSON schemas, and domain-specific examples, see [Cons
 | `experienced-llms prompt` | `--target`, `--skill`, `--scope` | Generate ready-to-inject prompt for orchestrator or worker |
 | `experienced-llms integrate` | `--target`, `--workspace` | Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi) |
 | `experienced-llms migrate` | *(None)* | Run pending full-stack migrations across DB, skills, and configuration |
-| `experienced-llms init` | *(None)* | Initialize SQLite schema and directory structure |
+| `experienced-llms init` | *(None)* | Initialize SQLite schema, directories, template, and initial EXPERIENCE.md |
 | `experienced-llms --version` | `-v` | Display version information (`1.0.0rc4`) |
 
 ---

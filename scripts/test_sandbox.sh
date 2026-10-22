@@ -56,15 +56,8 @@ if ! echo "${STATUS_OUTPUT}" | grep -q "Always run isolated tests"; then
 fi
 echo "[+] Verified fact recorded into sandbox SQLite database."
 
-# 5. Test interday consolidation (Pathway A with mock LLM and Pathway B prepare)
+# 5. Test interday consolidation with mock LLM
 echo "[+] Step 3: Testing consolidation pass in sandbox..."
-"${CLI_BIN}" consolidate --prepare > "${SANDBOX_DIR}/prepare_payload.json"
-if ! grep -q "Always run isolated tests" "${SANDBOX_DIR}/prepare_payload.json"; then
-    echo "[-] Error: consolidate --prepare payload missing test fact!"
-    exit 1
-fi
-echo "[+] Verified consolidate --prepare outputs valid prompt payload."
-
 MOCK_LLM_SCRIPT="${SANDBOX_DIR}/mock_llm.sh"
 cat << 'EOF' > "${MOCK_LLM_SCRIPT}"
 #!/bin/sh

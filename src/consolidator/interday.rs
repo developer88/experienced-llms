@@ -168,7 +168,7 @@ impl InterdayConsolidator {
                 .join("\n")
         };
 
-        let template = prompt_template::get_consolidation_template(template_path, self.home_dir.as_deref());
+        let template = prompt_template::get_consolidation_template(template_path, self.home_dir.as_deref())?;
         let system_prompt = template.replace("{max_words}", &limit_words.to_string());
 
         let user_prompt = format!(
