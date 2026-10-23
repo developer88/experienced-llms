@@ -15,7 +15,14 @@ pub fn get_asset_name() -> Result<&'static str, String> {
     }
 }
 
-pub fn check_for_updates(tag: Option<&str>) -> Result<(String, String, bool), Box<dyn std::error::Error>> {
+fn normalize_version(v: &str) -> String {
+    v.trim_start_matches('v')
+        .replace('-', "")
+        .replace('.', "")
+        .to_lowercase()
+}
+
+pub fn check_for_updates(tag: Option<&str>) -> Result<(String, String, String, bool), Box<dyn std::error::Error>> {
     let url = match tag {
         Some(t) => format!(
             "https://api.github.com/repos/developer88/experienced-llms/releases/tags/{}",
@@ -42,14 +49,14 @@ pub fn check_for_updates(tag: Option<&str>) -> Result<(String, String, bool), Bo
 
     let clean_remote = tag_name.trim_start_matches('v');
     let current = env!("CARGO_PKG_VERSION");
-    let is_newer = clean_remote != current;
+    let is_newer = normalize_version(clean_remote) != normalize_version(current);
 
-    Ok((current.to_string(), clean_remote.to_string(), is_newer))
+    Ok((current.to_string(), clean_remote.to_string(), tag_name.to_string(), is_newer))
 }
 
 pub fn run_self_update(check: bool, auto_yes: bool, tag: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
     println!("[+] Checking for updates from GitHub Releases...");
-    let (current, remote, is_newer) = match check_for_updates(tag) {
+    let (current, remote, tag_name, is_newer) = match check_for_updates(tag) {
         Ok(res) => res,
         Err(e) => {
             eprintln!("[-] Update check failed: {}", e);
@@ -78,7 +85,7 @@ pub fn run_self_update(check: bool, auto_yes: bool, tag: Option<&str>) -> Result
     let release_tag = if let Some(t) = tag {
         t.to_string()
     } else {
-        format!("v{}", remote)
+        tag_name
     };
 
     let download_url = format!(
