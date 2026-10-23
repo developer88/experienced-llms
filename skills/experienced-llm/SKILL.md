@@ -23,9 +23,13 @@ Experienced LLMs provides an autonomous, self-educating operational experience e
 ## 1. Startup Bootstrap (Session Start)
 
 Before taking any actions or proposing solutions:
-1. Read the active master experience file: `~/.experienced-llms/EXPERIENCE.md`
-2. Strictly obey all directives, safeguards, and preferences defined there.
-3. If the file does not exist yet, run `experienced-llms init` to initialize the baseline state and render EXPERIENCE.md.
+1. **Engine Verification**: Check if `experienced-llms` is available in `PATH` (e.g. run `experienced-llms --version`).
+   - If not installed, execute or prompt the user with the official 1-line installer:
+     - **Linux / macOS**: `curl -fsSL https://github.com/developer88/experienced-llms/releases/latest/download/install.sh | bash`
+     - **Windows**: `irm https://github.com/developer88/experienced-llms/releases/latest/download/install.ps1 | iex`
+2. Read the active master experience file: `~/.experienced-llms/EXPERIENCE.md`.
+3. Strictly obey all directives, safeguards, and preferences defined there.
+4. If `EXPERIENCE.md` does not exist yet, run `experienced-llms init` to initialize the baseline state and compile `EXPERIENCE.md`.
 
 ---
 
