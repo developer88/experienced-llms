@@ -95,9 +95,14 @@ if ($UserPath -notlike "*$InstallDir*") {
 
 # 4. Initialize SQLite storage and directories
 Write-Host "[+] Initializing Experienced LLMs storage..." -ForegroundColor Cyan
-& "$DestExe" init
+$InitHelp = & "$DestExe" init --help 2>&1
+if ($InitHelp -match "--yes") {
+    & "$DestExe" init --yes
+} else {
+    & "$DestExe" init
+}
 
-# 5. Configure AI Agent integrations (Antigravity, Claude, Copilot, Cursor, Pi)
+# 5. Configure AI Agent integrations (Antigravity skill)
 Write-Host "[+] Configuring AI Agent integrations..." -ForegroundColor Cyan
 & "$DestExe" integrate --target all
 

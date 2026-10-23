@@ -237,12 +237,35 @@ pub fn save_config(config: &Config) -> std::io::Result<()> {
     fs::write(get_config_file(), content)
 }
 
-pub fn ensure_template_in(home: &Path) -> std::io::Result<()> {
+pub fn ensure_template_with_prompt(home: &Path, auto_yes: bool) -> std::io::Result<Option<PathBuf>> {
     fs::create_dir_all(home)?;
     let template_file = home.join("template.md");
-    if !template_file.exists() {
+    if template_file.exists() {
+        let existing = fs::read_to_string(&template_file)?;
+        if existing.trim() == DEFAULT_CONSOLIDATION_TEMPLATE.trim() {
+            println!("[✓] Consolidation template is up to date: {}", template_file.display());
+            return Ok(None);
+        }
+
+        if crate::integrations::prompt_overwrite_or_skip(&template_file, auto_yes) {
+            let bak = crate::integrations::backup_file(&template_file)?;
+            println!("[+] Backed up existing template.md to: {}", bak.display());
+            fs::write(&template_file, DEFAULT_CONSOLIDATION_TEMPLATE)?;
+            println!("[+] Updated template.md to default version.");
+            Ok(Some(bak))
+        } else {
+            println!("[*] Skipped template.md (kept existing custom template).");
+            Ok(None)
+        }
+    } else {
         fs::write(&template_file, DEFAULT_CONSOLIDATION_TEMPLATE)?;
+        println!("[+] Created default consolidation template: {}", template_file.display());
+        Ok(None)
     }
+}
+
+pub fn ensure_template_in(home: &Path) -> std::io::Result<()> {
+    let _ = ensure_template_with_prompt(home, false)?;
     Ok(())
 }
 

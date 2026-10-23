@@ -1,133 +1,104 @@
 use std::fs;
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
-pub const UNIVERSAL_INSTRUCTION_BLOCK: &str = r#"<!-- BEGIN EXPERIENCED-LLMS -->
-## Autonomous Memory & Operational Wisdom
-1. At the start of your session, inspect your accumulated master experience:
-   Read: `~/.experienced-llms/EXPERIENCE.md`
-2. Strictly obey all User Directives, Project Constraints, and Defensive Heuristics defined there.
-3. Proactively record operational wisdom, defensive safeguards (e.g., verifying `.env` before git commits), hidden gotchas, or user directives:
-   Run: `experienced-llms log "<rule statement>" --reason "<root cause or why>" --category [defensive_heuristic|technical_decision|project_gotcha|user_preference]`
-<!-- END EXPERIENCED-LLMS -->
-"#;
+pub const EMBEDDED_SKILL_MD: &str = include_str!("../skills/experienced-llm/SKILL.md");
 
-pub fn append_or_replace_block(file_path: &Path, block: &str) -> std::io::Result<()> {
-    if let Some(parent) = file_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    if !file_path.exists() {
-        fs::write(file_path, format!("{}\n", block.trim()))?;
-        return Ok(());
-    }
-
-    let existing = fs::read_to_string(file_path)?;
-    let start_marker = "<!-- BEGIN EXPERIENCED-LLMS -->";
-    let end_marker = "<!-- END EXPERIENCED-LLMS -->";
-
-    let new_content = if let (Some(start_idx), Some(end_idx)) = (existing.find(start_marker), existing.find(end_marker)) {
-        if start_idx <= end_idx {
-            let before = &existing[..start_idx];
-            let after = &existing[end_idx + end_marker.len()..];
-            format!("{}\n\n{}\n{}", before.trim_end(), block.trim(), after.trim_start())
-        } else {
-            format!("{}\n\n{}\n", existing.trim_end(), block.trim())
-        }
-    } else {
-        format!("{}\n\n{}\n", existing.trim_end(), block.trim())
-    };
-
-    fs::write(file_path, new_content)?;
-    Ok(())
+/// Returns the canonical global agent skill directory: ~/.gemini/config/skills/experienced-llms
+pub fn get_default_skill_dir() -> PathBuf {
+    dirs::home_dir()
+        .map(|h| h.join(".gemini").join("config").join("skills").join("experienced-llms"))
+        .unwrap_or_else(|| PathBuf::from(".gemini/config/skills/experienced-llms"))
 }
 
-pub fn install_antigravity(target_dir: Option<&Path>) -> Result<String, Box<dyn std::error::Error>> {
+/// Creates a timestamped backup copy: <filename>.bak_<YYYYMMDD_HHMMSS>
+pub fn backup_file(path: &Path) -> io::Result<PathBuf> {
+    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
+    let backup_name = format!("{}.bak_{}", file_name, timestamp);
+    let backup_path = path.with_file_name(backup_name);
+    fs::copy(path, &backup_path)?;
+    Ok(backup_path)
+}
+
+/// Prompts user to overwrite or skip when a file already exists.
+/// Returns true if user approves overwrite, false if skipped.
+/// In non-interactive environments (CI, pipes), defaults to false unless auto_yes is true.
+pub fn prompt_overwrite_or_skip(file_path: &Path, auto_yes: bool) -> bool {
+    if auto_yes {
+        return true;
+    }
+    if !io::stdin().is_terminal() {
+        return false;
+    }
+    print!(
+        "File exists: {}. Overwrite? [o]verwrite / [s]kip (default: skip): ",
+        file_path.display()
+    );
+    let _ = io::stdout().flush();
+    let mut input = String::new();
+    if io::stdin().read_line(&mut input).is_ok() {
+        let trimmed = input.trim().to_lowercase();
+        trimmed == "o" || trimmed == "overwrite" || trimmed == "y" || trimmed == "yes"
+    } else {
+        false
+    }
+}
+
+/// Ensures the agent skill file exists in the target directory (default: ~/.gemini/config/skills/experienced-llms/SKILL.md).
+/// If it exists and differs, prompts the user to overwrite or skip.
+/// If overwritten, automatically creates a timestamped backup first.
+pub fn ensure_skill_with_prompt(
+    target_dir: Option<&Path>,
+    auto_yes: bool,
+) -> io::Result<Option<PathBuf>> {
     let dest_dir = target_dir
         .map(|p| p.to_path_buf())
-        .or_else(|| {
-            dirs::home_dir().map(|h| h.join(".gemini").join("config").join("skills").join("experienced-llms"))
-        })
-        .unwrap_or_else(|| PathBuf::from(".gemini/config/skills/experienced-llms"));
+        .unwrap_or_else(get_default_skill_dir);
 
     fs::create_dir_all(&dest_dir)?;
     let skill_file = dest_dir.join("SKILL.md");
 
-    // Check if repository skills/experienced-llm/SKILL.md exists
-    let src_skill = Path::new("skills").join("experienced-llm").join("SKILL.md");
-    let content = if src_skill.exists() {
-        fs::read_to_string(&src_skill)?
+    if skill_file.exists() {
+        let existing = fs::read_to_string(&skill_file)?;
+        if existing.trim() == EMBEDDED_SKILL_MD.trim() {
+            println!("[✓] Agent skill is already up to date: {}", skill_file.display());
+            return Ok(None);
+        }
+
+        if prompt_overwrite_or_skip(&skill_file, auto_yes) {
+            let bak = backup_file(&skill_file)?;
+            println!("[+] Backed up existing SKILL.md to: {}", bak.display());
+            fs::write(&skill_file, EMBEDDED_SKILL_MD)?;
+            println!("[+] Updated agent skill: {}", skill_file.display());
+            Ok(Some(bak))
+        } else {
+            println!("[*] Skipped SKILL.md (kept existing custom skill).");
+            Ok(None)
+        }
     } else {
-        UNIVERSAL_INSTRUCTION_BLOCK.to_string()
-    };
-
-    fs::write(&skill_file, content)?;
-    Ok(format!("Antigravity skill installed: {}", skill_file.display()))
+        fs::write(&skill_file, EMBEDDED_SKILL_MD)?;
+        println!("[+] Installed agent skill: {}", skill_file.display());
+        Ok(None)
+    }
 }
 
-pub fn install_claude(workspace: Option<&Path>) -> Result<String, Box<dyn std::error::Error>> {
-    let target = if let Some(ws) = workspace {
-        ws.join("CLAUDE.md")
-    } else if let Some(home) = dirs::home_dir() {
-        home.join(".claude").join("CLAUDE.md")
-    } else {
-        PathBuf::from("CLAUDE.md")
-    };
-
-    append_or_replace_block(&target, UNIVERSAL_INSTRUCTION_BLOCK)?;
-    Ok(format!("Claude instructions installed: {}", target.display()))
+/// Install/sync canonical Antigravity skill using the embedded SKILL.md asset
+pub fn install_antigravity(target_dir: Option<&Path>) -> Result<String, Box<dyn std::error::Error>> {
+    ensure_skill_with_prompt(target_dir, true)?;
+    let dest_dir = target_dir
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(get_default_skill_dir);
+    Ok(format!("Antigravity skill installed: {}", dest_dir.join("SKILL.md").display()))
 }
 
-pub fn install_copilot(workspace: Option<&Path>) -> Result<String, Box<dyn std::error::Error>> {
-    let base = workspace.unwrap_or_else(|| Path::new("."));
-    let target = base.join(".github").join("copilot-instructions.md");
-    append_or_replace_block(&target, UNIVERSAL_INSTRUCTION_BLOCK)?;
-    Ok(format!("GitHub Copilot instructions installed: {}", target.display()))
-}
-
-pub fn install_cursor(workspace: Option<&Path>) -> Result<String, Box<dyn std::error::Error>> {
-    let base = workspace.unwrap_or_else(|| Path::new("."));
-    let target = base.join(".cursorrules");
-    append_or_replace_block(&target, UNIVERSAL_INSTRUCTION_BLOCK)?;
-    Ok(format!("Cursor rules installed: {}", target.display()))
-}
-
-pub fn install_pi(workspace: Option<&Path>) -> Result<String, Box<dyn std::error::Error>> {
-    let base = workspace.unwrap_or_else(|| Path::new("."));
-    let target = base.join("AGENTS.md");
-    append_or_replace_block(&target, UNIVERSAL_INSTRUCTION_BLOCK)?;
-    Ok(format!("Universal AGENTS.md (for Pi and generic agents) installed: {}", target.display()))
-}
-
-pub fn auto_detect_and_install_all(workspace: Option<&Path>) -> Vec<String> {
+/// Installs canonical agent skill. Modifying workspace project files (CLAUDE.md, AGENTS.md,
+/// .cursorrules, copilot-instructions.md) has been completely discontinued.
+pub fn auto_detect_and_install_all(_workspace: Option<&Path>) -> Vec<String> {
     let mut results = Vec::new();
-
-    // 1. Antigravity
-    if let Some(home) = dirs::home_dir() {
-        let gemini_home = home.join(".gemini");
-        if gemini_home.exists() {
-            if let Ok(msg) = install_antigravity(None) {
-                results.push(format!("[+] {}", msg));
-            }
-        }
+    if let Ok(_) = ensure_skill_with_prompt(None, true) {
+        let skill_file = get_default_skill_dir().join("SKILL.md");
+        results.push(format!("[+] Installed agent skill: {}", skill_file.display()));
     }
-
-    // 2. Claude
-    if let Ok(msg) = install_claude(workspace) {
-        results.push(format!("[+] {}", msg));
-    }
-
-    // 3. GitHub Copilot
-    let cwd = workspace.unwrap_or_else(|| Path::new("."));
-    if cwd.join(".github").exists() || cwd.join(".git").exists() {
-        if let Ok(msg) = install_copilot(Some(cwd)) {
-            results.push(format!("[+] {}", msg));
-        }
-    }
-
-    // 4. Universal AGENTS.md (Pi and open agent standard)
-    if let Ok(msg) = install_pi(Some(cwd)) {
-        results.push(format!("[+] {}", msg));
-    }
-
     results
 }

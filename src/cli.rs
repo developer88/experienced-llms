@@ -12,6 +12,7 @@ use crate::llm_client;
 use crate::models::FactCategory;
 use crate::renderer;
 use crate::scheduler;
+use crate::updater;
 
 #[derive(Parser, Debug)]
 #[command(name = "experienced-llms")]
@@ -99,11 +100,30 @@ pub enum Commands {
     /// Run pending full-stack migrations across database, skills, and configuration
     Migrate,
 
-    /// Initialize SQLite schema and directories
+    /// Initialize SQLite schema, default template, and agent skill
     Init {
         /// Optional database file path
         #[arg(long = "db-path")]
         db_path: Option<PathBuf>,
+
+        /// Automatically approve prompts (e.g. file overwrite)
+        #[arg(short = 'y', long = "yes")]
+        yes: bool,
+    },
+
+    /// Self-update experienced-llms to the latest release
+    Update {
+        /// Check for available updates without installing
+        #[arg(long)]
+        check: bool,
+
+        /// Automatically approve prompts (e.g. file overwrite)
+        #[arg(short = 'y', long = "yes")]
+        yes: bool,
+
+        /// Pin to a specific release tag
+        #[arg(long)]
+        tag: Option<String>,
     },
 
     /// Consolidate multi-day experiences into EXPERIENCE.md via LLM
@@ -173,14 +193,19 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init { db_path } => {
+        Commands::Init { db_path, yes } => {
             println!("Initializing Experienced LLMs...");
             config::ensure_directories()?;
-            config::ensure_template_in(&config::get_experienced_home())?;
+            config::ensure_template_with_prompt(&config::get_experienced_home(), yes)?;
+            integrations::ensure_skill_with_prompt(None, yes)?;
             db::init_db(db_path.as_deref())?;
             let (count, _) = renderer::rebuild_master_experience(db_path.as_deref(), None)?;
             println!("Initialized Experienced LLMs at: {}", config::get_experienced_home().display());
             println!("Rendered active experience with {} facts.", count);
+        }
+
+        Commands::Update { check, yes, tag } => {
+            updater::run_self_update(check, yes, tag.as_deref())?;
         }
 
         Commands::Migrate => {
@@ -314,34 +339,26 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        Commands::Integrate { target, workspace } => {
-            let ws_ref = workspace.as_deref();
+        Commands::Integrate { target, workspace: _ } => {
             match target.to_lowercase().as_str() {
-                "antigravity" => {
+                "antigravity" | "skill" => {
                     let msg = integrations::install_antigravity(None)?;
                     println!("[+] {}", msg);
                 }
-                "claude" => {
-                    let msg = integrations::install_claude(ws_ref)?;
-                    println!("[+] {}", msg);
+                "all" => {
+                    let results = integrations::auto_detect_and_install_all(None);
+                    for res in results {
+                        println!("{}", res);
+                    }
                 }
-                "copilot" => {
-                    let msg = integrations::install_copilot(ws_ref)?;
-                    println!("[+] {}", msg);
-                }
-                "cursor" => {
-                    let msg = integrations::install_cursor(ws_ref)?;
-                    println!("[+] {}", msg);
-                }
-                "pi" => {
-                    let msg = integrations::install_pi(ws_ref)?;
+                "claude" | "copilot" | "cursor" | "pi" => {
+                    println!("[-] Note: Modifying workspace project files (CLAUDE.md, AGENTS.md, etc.) is discontinued.");
+                    println!("    Experienced LLMs operates strictly via ~/.gemini/config/skills/experienced-llms/SKILL.md without workspace pollution.");
+                    let msg = integrations::install_antigravity(None)?;
                     println!("[+] {}", msg);
                 }
                 _ => {
-                    let results = integrations::auto_detect_and_install_all(ws_ref);
-                    for r in results {
-                        println!("{}", r);
-                    }
+                    eprintln!("[-] Unknown integration target: {}. Supported: antigravity, skill, all", target);
                 }
             }
         }

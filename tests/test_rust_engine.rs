@@ -821,47 +821,57 @@ fn test_agent_integrations_files() {
     let dir = tempdir().expect("Failed to create tempdir");
     let ws = dir.path().to_path_buf();
 
-    // 1. Antigravity
+    // 1. Antigravity Skill installation from embedded asset
     let ag_dir = ws.join("antigravity_skill");
     let ag_res = experienced_llms::integrations::install_antigravity(Some(&ag_dir));
     assert!(ag_res.is_ok());
-    assert!(ag_dir.join("SKILL.md").exists());
+    let skill_path = ag_dir.join("SKILL.md");
+    assert!(skill_path.exists());
+    let content = fs::read_to_string(&skill_path).unwrap();
+    assert!(content.contains("name: experienced-llm"));
 
-    // 2. Claude
-    let cl_res = experienced_llms::integrations::install_claude(Some(&ws));
-    assert!(cl_res.is_ok());
-    let cl_file = ws.join("CLAUDE.md");
-    assert!(cl_file.exists());
-    let cl_content = fs::read_to_string(&cl_file).unwrap();
-    assert!(cl_content.contains("<!-- BEGIN EXPERIENCED-LLMS -->"));
+    // 2. Automated backup on overwrite
+    fs::write(&skill_path, "Custom user-modified skill content").unwrap();
+    let bak = experienced_llms::integrations::ensure_skill_with_prompt(Some(&ag_dir), true)
+        .expect("Failed to ensure skill");
+    assert!(bak.is_some(), "Backup path must be returned on overwrite");
+    let bak_path = bak.unwrap();
+    assert!(bak_path.exists());
+    let bak_content = fs::read_to_string(&bak_path).unwrap();
+    assert_eq!(bak_content, "Custom user-modified skill content");
 
-    // 3. Idempotent block replacement
-    experienced_llms::integrations::append_or_replace_block(
-        &cl_file,
-        experienced_llms::integrations::UNIVERSAL_INSTRUCTION_BLOCK,
-    )
-    .unwrap();
-    let cl_content_again = fs::read_to_string(&cl_file).unwrap();
-    assert_eq!(
-        cl_content_again.matches("<!-- BEGIN EXPERIENCED-LLMS -->").count(),
-        1,
-        "Instruction block must be replaced idempotently without duplicate markers"
-    );
+    // 3. Skip overwrite preserves custom content
+    fs::write(&skill_path, "Second custom modification").unwrap();
+    let bak2 = experienced_llms::integrations::ensure_skill_with_prompt(Some(&ag_dir), false)
+        .expect("Failed to ensure skill");
+    assert!(bak2.is_none(), "Backup must not be created when skipping");
+    assert_eq!(fs::read_to_string(&skill_path).unwrap(), "Second custom modification");
 
-    // 4. Copilot
-    let cp_res = experienced_llms::integrations::install_copilot(Some(&ws));
-    assert!(cp_res.is_ok());
-    assert!(ws.join(".github").join("copilot-instructions.md").exists());
+    // 4. Zero workspace pollution: ensure no CLAUDE.md or AGENTS.md created
+    experienced_llms::integrations::auto_detect_and_install_all(Some(&ws));
+    assert!(!ws.join("CLAUDE.md").exists(), "CLAUDE.md must NOT be created");
+    assert!(!ws.join("AGENTS.md").exists(), "AGENTS.md must NOT be created");
+    assert!(!ws.join(".cursorrules").exists(), ".cursorrules must NOT be created");
+}
 
-    // 5. Cursor
-    let cur_res = experienced_llms::integrations::install_cursor(Some(&ws));
-    assert!(cur_res.is_ok());
-    assert!(ws.join(".cursorrules").exists());
+#[test]
+fn test_template_prompt_and_backup() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home = dir.path().to_path_buf();
 
-    // 6. Pi
-    let pi_res = experienced_llms::integrations::install_pi(Some(&ws));
-    assert!(pi_res.is_ok());
-    assert!(ws.join("AGENTS.md").exists());
+    // 1. Initial creation
+    let init_res = experienced_llms::config::ensure_template_with_prompt(&home, false);
+    assert!(init_res.is_ok());
+    let tmpl_path = home.join("template.md");
+    assert!(tmpl_path.exists());
+
+    // 2. Custom modification and backup on overwrite
+    fs::write(&tmpl_path, "Custom consolidation template with {max_words}").unwrap();
+    let bak = experienced_llms::config::ensure_template_with_prompt(&home, true).unwrap();
+    assert!(bak.is_some());
+    let bak_path = bak.unwrap();
+    assert!(bak_path.exists());
+    assert_eq!(fs::read_to_string(bak_path).unwrap(), "Custom consolidation template with {max_words}");
 }
 
 #[test]
@@ -870,27 +880,20 @@ fn test_cli_integrate_and_schedule_commands() {
     let ws = dir.path().to_path_buf();
     let exe = env!("CARGO_BIN_EXE_experienced-llms");
 
-    // 1. Integrate targets
+    // 1. Integrate targets (zero workspace pollution)
     let out_claude = Command::new(exe)
         .args(["integrate", "--target", "claude", "--workspace", ws.to_str().unwrap()])
         .output()
         .expect("Failed to run integrate claude");
     assert!(out_claude.status.success());
-    assert!(ws.join("CLAUDE.md").exists());
-
-    let out_cursor = Command::new(exe)
-        .args(["integrate", "--target", "cursor", "--workspace", ws.to_str().unwrap()])
-        .output()
-        .expect("Failed to run integrate cursor");
-    assert!(out_cursor.status.success());
-    assert!(ws.join(".cursorrules").exists());
+    assert!(!ws.join("CLAUDE.md").exists(), "CLAUDE.md must NOT be created in workspace");
 
     let out_all = Command::new(exe)
         .args(["integrate", "--target", "all", "--workspace", ws.to_str().unwrap()])
         .output()
         .expect("Failed to run integrate all");
     assert!(out_all.status.success());
-    assert!(ws.join("AGENTS.md").exists());
+    assert!(!ws.join("AGENTS.md").exists(), "AGENTS.md must NOT be created in workspace");
 
     // 2. Schedule status
     let out_status = Command::new(exe)
@@ -900,6 +903,19 @@ fn test_cli_integrate_and_schedule_commands() {
     assert!(out_status.status.success());
     let status_str = String::from_utf8_lossy(&out_status.stdout);
     assert!(status_str.contains("Scheduler Status:"));
+
+    // 3. Update CLI command check flag
+    let out_update = Command::new(exe)
+        .args(["update", "--check"])
+        .output()
+        .expect("Failed to run update check");
+    // Even if offline, exit code is handled cleanly without crashing
+    let update_str = String::from_utf8_lossy(&out_update.stdout);
+    let update_err = String::from_utf8_lossy(&out_update.stderr);
+    assert!(
+        update_str.contains("Checking for updates") || update_err.contains("Update check failed"),
+        "Update output: {}, err: {}", update_str, update_err
+    );
 }
 
 #[test]

@@ -136,7 +136,8 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 | `experienced-llms prompt` | `--target`, `--skill`, `--scope` | Generate ready-to-inject prompt for orchestrator or worker |
 | `experienced-llms integrate` | `--target`, `--workspace` | Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi) |
 | `experienced-llms migrate` | *(None)* | Run pending full-stack migrations across DB, skills, and configuration |
-| `experienced-llms init` | *(None)* | Initialize SQLite schema, directories, template, and initial EXPERIENCE.md |
+| `experienced-llms init` | `--db-path`, `--yes` | Initialize SQLite schema, directories, template, and initial EXPERIENCE.md |
+| `experienced-llms update` | `--check`, `--yes`, `--tag` | Perform automated in-place self-update to latest release |
 | `experienced-llms --version` | `-v` | Display version information (`1.0.0rc4`) |
 
 ---

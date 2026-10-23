@@ -172,9 +172,13 @@ fi
 
 # 5. Initialize SQLite storage and directories
 echo "[+] Initializing Experienced LLMs storage..."
-"${TARGET_BIN}" init
+if "${TARGET_BIN}" init --help 2>&1 | grep -q -- '--yes'; then
+    "${TARGET_BIN}" init --yes
+else
+    "${TARGET_BIN}" init
+fi
 
-# 6. Configure AI Agent integrations (Antigravity, Claude, Copilot, Cursor, Pi)
+# 6. Configure AI Agent integrations (Antigravity skill)
 echo "[+] Configuring AI Agent integrations..."
 "${TARGET_BIN}" integrate --target all
 

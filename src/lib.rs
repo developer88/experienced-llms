@@ -8,3 +8,4 @@ pub mod llm_client;
 pub mod models;
 pub mod renderer;
 pub mod scheduler;
+pub mod updater;
