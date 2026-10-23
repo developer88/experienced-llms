@@ -5,7 +5,7 @@
 # Experienced LLMs
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: 1.0.0rc4](https://img.shields.io/badge/Version-1.0.0rc4-green.svg)](https://github.com/developer88/experienced-llms/releases)
+[![Version: 1.0.0rc5](https://img.shields.io/badge/Version-1.0.0rc5-green.svg)](https://github.com/developer88/experienced-llms/releases)
 [![AgenticSkills: S-Rank](https://img.shields.io/badge/AgenticSkills-Compliant-orange.svg)](https://agenticskills.io/methodology)
 
 Let's give AI a tool to learn from our feedback day to day. It does not replace `AGENTS.md`, nor Skills or MCPs, but significantly improves your local agents and makes them tailored to your personal workflows.
@@ -132,7 +132,7 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 | `experienced-llms schedule` | `--install`, `--uninstall`, `--status`, `--time`, `--type` | Manage scheduled nightly consolidation daemon |
 | `experienced-llms update` | `--check`, `--yes`, `--tag` | Perform automated in-place self-update to latest release |
 | `experienced-llms init` | `--db-path`, `--yes` | Initialize SQLite schema, directories, template, and initial EXPERIENCE.md |
-| `experienced-llms --version` | `-v` | Display version information (`1.0.0rc4`) |
+| `experienced-llms --version` | `-v` | Display version information (`1.0.0rc5`) |
 
 ---
 
@@ -140,7 +140,7 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 
 Experienced LLMs is packaged in full accordance with the [agenticskills.io/methodology](https://agenticskills.io/methodology) standard:
 - **Canonical Skill Location**: `skills/experienced-llm/SKILL.md`
-- **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc4`), author, repository, license, and keywords.
+- **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc5`), author, repository, license, and keywords.
 - **Safety & Containment**: Strict local containment in user home, zero capability escalation, zero private data leakage.
 
 ---
