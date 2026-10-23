@@ -868,7 +868,17 @@ fn test_agent_integrations_files() {
     assert!(bak2.is_none(), "Backup must not be created when skipping");
     assert_eq!(fs::read_to_string(&skill_path).unwrap(), "Second custom modification");
 
-    // 4. Zero workspace pollution: ensure no CLAUDE.md or AGENTS.md created
+    // 4. Custom skill directory configuration and persistence
+    let custom_skill_dir = ws.join("custom_agent_skills");
+    let res_custom = experienced_llms::integrations::ensure_skill_with_prompt(Some(&custom_skill_dir), true);
+    assert!(res_custom.is_ok());
+    assert!(custom_skill_dir.join("SKILL.md").exists());
+    assert_eq!(
+        experienced_llms::config::get_configured_skill_dir(),
+        Some(custom_skill_dir)
+    );
+
+    // 5. Zero workspace pollution: ensure no CLAUDE.md or AGENTS.md created
     experienced_llms::integrations::auto_detect_and_install_all(Some(&ws));
     assert!(!ws.join("CLAUDE.md").exists(), "CLAUDE.md must NOT be created");
     assert!(!ws.join("AGENTS.md").exists(), "AGENTS.md must NOT be created");

@@ -80,6 +80,10 @@ pub enum Commands {
         #[arg(long = "db-path")]
         db_path: Option<PathBuf>,
 
+        /// Optional target directory for agent skill (SKILL.md)
+        #[arg(long = "skill-dir")]
+        skill_dir: Option<PathBuf>,
+
         /// Automatically approve prompts (e.g. file overwrite)
         #[arg(short = 'y', long = "yes")]
         yes: bool,
@@ -170,11 +174,11 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init { db_path, yes } => {
+        Commands::Init { db_path, skill_dir, yes } => {
             println!("Initializing Experienced LLMs...");
             config::ensure_directories()?;
             config::ensure_template_with_prompt(&config::get_experienced_home(), yes)?;
-            integrations::ensure_skill_with_prompt(None, yes)?;
+            integrations::ensure_skill_with_prompt(skill_dir.as_deref(), yes)?;
             db::init_db(db_path.as_deref())?;
             let (count, _) = renderer::rebuild_master_experience(db_path.as_deref(), None)?;
             println!("Initialized Experienced LLMs at: {}", config::get_experienced_home().display());
@@ -270,25 +274,33 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         Commands::Integrate { target, workspace: _ } => {
+            let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
             match target.to_lowercase().as_str() {
-                "antigravity" | "skill" => {
-                    let msg = integrations::install_antigravity(None)?;
+                "antigravity" | "gemini" => {
+                    let dir = home.join(".gemini").join("config").join("skills").join("experienced-llms");
+                    let msg = integrations::install_antigravity(Some(&dir))?;
                     println!("[+] {}", msg);
                 }
-                "all" => {
+                "claude" => {
+                    let dir = home.join(".claude").join("skills").join("experienced-llms");
+                    let msg = integrations::install_antigravity(Some(&dir))?;
+                    println!("[+] {}", msg);
+                }
+                "cursor" => {
+                    let dir = home.join(".cursor").join("skills").join("experienced-llms");
+                    let msg = integrations::install_antigravity(Some(&dir))?;
+                    println!("[+] {}", msg);
+                }
+                "skill" | "all" => {
                     let results = integrations::auto_detect_and_install_all(None);
                     for res in results {
                         println!("{}", res);
                     }
                 }
-                "claude" | "copilot" | "cursor" | "pi" => {
-                    println!("[-] Note: Modifying workspace project files (CLAUDE.md, AGENTS.md, etc.) is discontinued.");
-                    println!("    Experienced LLMs operates strictly via ~/.gemini/config/skills/experienced-llms/SKILL.md without workspace pollution.");
-                    let msg = integrations::install_antigravity(None)?;
-                    println!("[+] {}", msg);
-                }
                 _ => {
-                    eprintln!("[-] Unknown integration target: {}. Supported: antigravity, skill, all", target);
+                    let custom_path = config::resolve_path(&target);
+                    let msg = integrations::install_antigravity(Some(&custom_path))?;
+                    println!("[+] {}", msg);
                 }
             }
         }

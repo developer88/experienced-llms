@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Embedded Static Assets**: `SKILL.md` and default consolidation `template.md` compiled directly into the binary via `include_str!`, eliminating external asset dependency.
 - **Safe Asset Prompt & Backup Engine**: Prompts `[o]verwrite / [s]kip` on `init` and `update` when user customizations are present, automatically generating timestamped `.bak_<timestamp>` backups.
 - **Autonomous Skill Self-Bootstrap**: `SKILL.md` Section 1 verifies binary availability in `PATH` and executes or guides the user with 1-line installers if missing.
+- **Configurable Agent Skill Location**: Interactive prompt during `init` and `update` allowing users to choose their agent skill directory (Antigravity/Gemini, Claude Code, Cursor, custom path, or skip), with `--skill-dir` flag and `config.json` persistence.
 - **Self-Healing Consolidation**: Automatically rebuilds missing `EXPERIENCE.md` from active SQLite facts when running `consolidate`.
 
 ### Changed

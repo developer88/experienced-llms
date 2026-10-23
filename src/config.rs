@@ -142,6 +142,8 @@ pub struct Config {
     pub max_experience_words: usize,
     #[serde(default)]
     pub external_llm_cmd: Option<String>,
+    #[serde(default)]
+    pub skill_dir: Option<String>,
 }
 
 fn default_provider() -> String {
@@ -196,8 +198,25 @@ impl Default for Config {
             schedule_time: default_schedule_time(),
             max_experience_words: default_max_experience_words(),
             external_llm_cmd: env::var("EXPERIENCED_LLMS_EXTERNAL_CMD").ok().filter(|s| !s.trim().is_empty()),
+            skill_dir: env::var("EXPERIENCED_LLMS_SKILL_DIR").ok().filter(|s| !s.trim().is_empty()),
         }
     }
+}
+
+pub fn get_configured_skill_dir() -> Option<PathBuf> {
+    if let Ok(val) = env::var("EXPERIENCED_LLMS_SKILL_DIR") {
+        if !val.trim().is_empty() {
+            return Some(resolve_path(val));
+        }
+    }
+    let cfg = load_config();
+    cfg.skill_dir.as_ref().map(resolve_path)
+}
+
+pub fn save_configured_skill_dir(dir: &Path) -> std::io::Result<()> {
+    let mut cfg = load_config();
+    cfg.skill_dir = Some(dir.to_string_lossy().to_string());
+    save_config(&cfg)
 }
 
 pub fn load_config() -> Config {
