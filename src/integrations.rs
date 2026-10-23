@@ -45,30 +45,124 @@ pub fn prompt_overwrite_or_skip(file_path: &Path, auto_yes: bool) -> bool {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct DetectedAgentSkill {
+    pub name: &'static str,
+    pub path: PathBuf,
+}
+
+/// Automatically detects installed AI agent environments on the host machine.
+pub fn detect_agent_skill_dirs() -> Vec<DetectedAgentSkill> {
+    let mut detected = Vec::new();
+    let home = match dirs::home_dir() {
+        Some(h) => h,
+        None => return detected,
+    };
+
+    // 1. Google Antigravity / Gemini: ~/.gemini
+    let gemini_base = home.join(".gemini");
+    if gemini_base.is_dir() {
+        detected.push(DetectedAgentSkill {
+            name: "Google Antigravity / Gemini",
+            path: gemini_base.join("config").join("skills").join("experienced-llms"),
+        });
+    }
+
+    // 2. Claude Code: ~/.claude
+    let claude_base = home.join(".claude");
+    if claude_base.is_dir() {
+        detected.push(DetectedAgentSkill {
+            name: "Claude Code",
+            path: claude_base.join("skills").join("experienced-llms"),
+        });
+    }
+
+    // 3. Cursor: ~/.cursor
+    let cursor_base = home.join(".cursor");
+    if cursor_base.is_dir() {
+        detected.push(DetectedAgentSkill {
+            name: "Cursor",
+            path: cursor_base.join("skills").join("experienced-llms"),
+        });
+    }
+
+    // 4. Windsurf / Codeium: ~/.codeium
+    let codeium_base = home.join(".codeium");
+    if codeium_base.is_dir() {
+        detected.push(DetectedAgentSkill {
+            name: "Windsurf",
+            path: codeium_base.join("windsurf").join("skills").join("experienced-llms"),
+        });
+    }
+
+    detected
+}
+
 /// Prompts the user to choose or confirm the agent skill installation directory.
+/// Automatically detects existing agent folders and asks user for confirmation.
 pub fn prompt_user_for_skill_dir() -> io::Result<Option<PathBuf>> {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    let gemini_default = home.join(".gemini").join("config").join("skills").join("experienced-llms");
-    let claude_default = home.join(".claude").join("skills").join("experienced-llms");
-    let cursor_default = home.join(".cursor").join("skills").join("experienced-llms");
+    let detected = detect_agent_skill_dirs();
+
+    // Case 1: Exactly one agent folder detected -> ask user if they want to install there
+    if detected.len() == 1 {
+        let agent = &detected[0];
+        println!("\n[+] Detected {} agent environment:", agent.name);
+        println!("    Target directory: {}", agent.path.display());
+        print!("Install agent skill here? [Y/n/custom/skip] (default: Y): ");
+        let _ = io::stdout().flush();
+
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_ok() {
+            let trimmed = input.trim().to_lowercase();
+            if trimmed.is_empty() || trimmed == "y" || trimmed == "yes" {
+                return Ok(Some(agent.path.clone()));
+            } else if trimmed == "s" || trimmed == "skip" {
+                println!("[*] Skipped agent skill installation.");
+                return Ok(None);
+            } else if trimmed.contains('/') || trimmed.contains('\\') {
+                return Ok(Some(crate::config::resolve_path(input.trim())));
+            }
+            // If "n", "no", "custom", fall through to full options menu
+        } else {
+            return Ok(Some(agent.path.clone()));
+        }
+    }
+
+    // Case 2: Multiple detected, or none detected, or user declined single detected
+    let default_options = [
+        ("Google Antigravity / Gemini", home.join(".gemini").join("config").join("skills").join("experienced-llms")),
+        ("Claude Code", home.join(".claude").join("skills").join("experienced-llms")),
+        ("Cursor", home.join(".cursor").join("skills").join("experienced-llms")),
+    ];
 
     println!("\nWhere should the agent skill (SKILL.md) be installed?");
-    println!("  [1] Google Antigravity / Gemini ({})", gemini_default.display());
-    println!("  [2] Claude Code ({})", claude_default.display());
-    println!("  [3] Cursor ({})", cursor_default.display());
+    for (i, (name, path)) in default_options.iter().enumerate() {
+        let is_detected = detected.iter().any(|d| d.path == *path);
+        let tag = if is_detected { " [DETECTED]" } else { "" };
+        println!("  [{}] {} ({}){}", i + 1, name, path.display(), tag);
+    }
     println!("  [4] Custom directory path");
     println!("  [s] Skip skill installation");
-    print!("Select an option [1-4, s] (default: 1): ");
+
+    let default_idx = if !detected.is_empty() {
+        default_options.iter().position(|(_, p)| *p == detected[0].path).map(|i| i + 1).unwrap_or(1)
+    } else {
+        1
+    };
+
+    print!("Select an option [1-4, s] (default: {}): ", default_idx);
     let _ = io::stdout().flush();
 
     let mut input = String::new();
     if io::stdin().read_line(&mut input).is_ok() {
         let choice = input.trim();
         match choice {
-            "1" | "" => Ok(Some(gemini_default)),
-            "2" => Ok(Some(claude_default)),
-            "3" => Ok(Some(cursor_default)),
-            "4" => {
+            "" => Ok(Some(default_options[default_idx - 1].1.clone())),
+            "1" => Ok(Some(default_options[0].1.clone())),
+            "2" => Ok(Some(default_options[1].1.clone())),
+            "3" => Ok(Some(default_options[2].1.clone())),
+            "4" | "c" | "custom" => {
                 print!("Enter custom directory path: ");
                 let _ = io::stdout().flush();
                 let mut custom = String::new();
@@ -76,8 +170,8 @@ pub fn prompt_user_for_skill_dir() -> io::Result<Option<PathBuf>> {
                     let resolved = crate::config::resolve_path(custom.trim());
                     Ok(Some(resolved))
                 } else {
-                    println!("[*] No path entered, defaulting to: {}", gemini_default.display());
-                    Ok(Some(gemini_default))
+                    println!("[*] No path entered, defaulting to: {}", default_options[default_idx - 1].1.display());
+                    Ok(Some(default_options[default_idx - 1].1.clone()))
                 }
             }
             "s" | "S" | "skip" | "none" => {
@@ -89,13 +183,13 @@ pub fn prompt_user_for_skill_dir() -> io::Result<Option<PathBuf>> {
                     let resolved = crate::config::resolve_path(other);
                     Ok(Some(resolved))
                 } else {
-                    println!("[*] Unrecognized choice '{}', defaulting to: {}", other, gemini_default.display());
-                    Ok(Some(gemini_default))
+                    println!("[*] Unrecognized choice '{}', defaulting to: {}", other, default_options[default_idx - 1].1.display());
+                    Ok(Some(default_options[default_idx - 1].1.clone()))
                 }
             }
         }
     } else {
-        Ok(Some(gemini_default))
+        Ok(Some(default_options[default_idx - 1].1.clone()))
     }
 }
 

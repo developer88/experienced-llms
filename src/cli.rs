@@ -259,10 +259,8 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
 
-                    println!("\n=== Auto-Synthesized Skills ===");
-                    if skills.is_empty() {
-                        println!("  (None generated yet)");
-                    } else {
+                    if !skills.is_empty() {
+                        println!("\n=== Auto-Synthesized Skills ===");
                         for s in &skills {
                             println!("  * {} ({})", s.key, s.file_path);
                         }
