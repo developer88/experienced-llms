@@ -83,24 +83,27 @@ experienced-llms log "Always run npm inside WSL, never directly on Windows" \
   --reason "Avoid Windows path resolution issues"
 ```
 
-### 2. Inspect Active Rulebook
+### 2. Inspect Active Memory & Status
 ```bash
-experienced-llms show
+experienced-llms status
+
+# Or view the compiled master rulebook directly:
+cat ~/.experienced-llms/EXPERIENCE.md
 ```
 
 ### 3. Run Consolidation
 ```bash
 # Using external CLI tool (e.g. agy, claude, ollama)
 experienced-llms consolidate --llm "agy query"
-
-# Or configure default LLM CLI command once:
-experienced-llms setup --llm "agy query"
-experienced-llms consolidate
 ```
 
-### 4. Re-render EXPERIENCE.md from SQLite Facts
+### 4. Initialize & Configure Agent Skill Directory
 ```bash
-experienced-llms render
+# Interactive initialization (autodetects Antigravity, Claude, Cursor, or prompts for path)
+experienced-llms init
+
+# Or explicitly specify agent skill directory:
+experienced-llms init --skill-dir ~/.claude/skills/experienced-llms
 ```
 
 ---
@@ -131,7 +134,7 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 | `experienced-llms status` | *(None)* | Show active facts, ledger counts, and schedule state |
 | `experienced-llms schedule` | `--install`, `--uninstall`, `--status`, `--time`, `--type` | Manage scheduled nightly consolidation daemon |
 | `experienced-llms update` | `--check`, `--yes`, `--tag` | Perform automated in-place self-update to latest release |
-| `experienced-llms init` | `--db-path`, `--yes` | Initialize SQLite schema, directories, template, and initial EXPERIENCE.md |
+| `experienced-llms init` | `--skill-dir <PATH>`, `--db-path <PATH>`, `--yes` | Initialize SQLite schema, directories, template, and configure agent skill |
 | `experienced-llms --version` | `-v` | Display version information (`1.0.0rc5`) |
 
 ---

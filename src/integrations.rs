@@ -202,9 +202,7 @@ pub fn ensure_skill_with_prompt(
     auto_yes: bool,
 ) -> io::Result<Option<PathBuf>> {
     let dest_dir = if let Some(p) = target_dir {
-        let p_buf = p.to_path_buf();
-        let _ = crate::config::save_configured_skill_dir(&p_buf);
-        Some(p_buf)
+        Some(p.to_path_buf())
     } else if let Some(configured) = crate::config::get_configured_skill_dir() {
         Some(configured)
     } else if auto_yes || !io::stdin().is_terminal() {

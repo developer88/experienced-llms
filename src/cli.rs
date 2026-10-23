@@ -178,6 +178,9 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             println!("Initializing Experienced LLMs...");
             config::ensure_directories()?;
             config::ensure_template_with_prompt(&config::get_experienced_home(), yes)?;
+            if let Some(ref sd) = skill_dir {
+                let _ = config::save_configured_skill_dir(sd);
+            }
             integrations::ensure_skill_with_prompt(skill_dir.as_deref(), yes)?;
             db::init_db(db_path.as_deref())?;
             let (count, _) = renderer::rebuild_master_experience(db_path.as_deref(), None)?;
