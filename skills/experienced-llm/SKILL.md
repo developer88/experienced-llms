@@ -43,10 +43,14 @@ Proactively record actionable operational heuristics, defensive safeguards, hidd
 - **Anti-Patterns & Critical Gotchas**: Hidden bugs, platform-specific traps (e.g. Windows CRLF vs Linux LF), or tool quirks.
 - **Mistake Corrections & Fixes**: A tool call fails or code fails to compile and you resolve the root cause.
 
-### What NOT to Record:
-- Never log project-specific constraints (e.g. workspace ports, DB engines, frameworks, or architecture patterns) — these belong in dedicated project skills or repository guidelines, not general operational heuristics.
-- Never log static trivia, language syntax readily available online, or temporary session state.
-- Never log conversational chatter or non-operational commentary.
+### What NOT to Record (Strict Anti-Patterns):
+- **Ephemeral Test/Verification Failures**: NEVER log raw failure notifications (e.g. `"Verification failure on task_3 (/tmp/...)"`, `"Test failed at line 12"`, `"SyntaxError: unexpected token"`). Only log once you have diagnosed the root cause and synthesized a **durable, actionable heuristic**. If no generalizable rule exists, do NOT log anything.
+- **Temporary / Disposable File Paths**: NEVER log rules referencing `/tmp/`, `temp/`, scratch folders, or transient test sandboxes.
+- **Task & Milestone Execution State**: NEVER log task IDs (`task_3`), milestone identifiers (`ms_9bd96fe9`), run hashes, or ephemeral debugging steps.
+- **Raw Unanalyzed Errors & Stack Traces**: NEVER dump raw compiler logs or stack traces as statements. Heuristics must be clear, imperative operational rules (e.g. "Always run npm in WSL", never "npm exited with code 1").
+- **Project-Specific Constraints & Framework Trivia**: Port numbers, database choices, framework conventions, or business logic belong in repository guidelines or dedicated project skills, not user-level operational memory.
+- **Static Trivia & Public Documentation**: Standard programming language syntax or public library docs readily available online.
+- **Conversational Chatter**: Speculative musings, session greetings, or non-operational commentary.
 
 ### Operational Logging Syntax:
 ```bash
