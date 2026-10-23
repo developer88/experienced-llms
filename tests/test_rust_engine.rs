@@ -441,16 +441,10 @@ fn test_cli_subcommands_sandbox() {
         .expect("Failed to run render");
     assert!(render_out.status.success());
 
-    // 5. Show
-    let show_out = Command::new(exe)
-        .env("EXPERIENCED_LLMS_HOME", &home_dir)
-        .arg("show")
-        .output()
-        .expect("Failed to run show");
-    assert!(show_out.status.success());
-    let show_str = String::from_utf8_lossy(&show_out.stdout);
-    assert!(show_str.contains("# Master AI Experience"));
-    assert!(show_str.contains("Always test CLI commands"));
+    // 5. Verify EXPERIENCE.md content
+    let master_exp = fs::read_to_string(home_dir.join("EXPERIENCE.md")).unwrap();
+    assert!(master_exp.contains("# Master AI Experience"));
+    assert!(master_exp.contains("Always test CLI commands"));
 }
 
 #[test]
@@ -765,34 +759,49 @@ fn test_cli_consolidate_execution_and_template_lifecycle() {
     assert!(init2_out.status.success());
     assert!(template_file.exists(), "init must restore missing template.md");
 
-    // 6. Test show displays the updated EXPERIENCE.md
-    let show_out = Command::new(exe)
-        .env("EXPERIENCED_LLMS_HOME", &home_path)
-        .arg("show")
-        .output()
-        .expect("Failed to run show");
-    assert!(show_out.status.success());
-    let show_str = String::from_utf8_lossy(&show_out.stdout);
-    assert!(show_str.contains("First test rule for consolidation"));
-    assert!(show_str.contains("Second test rule for consolidation"));
+    // 6. Test direct inspection of EXPERIENCE.md
+    let exp_content = fs::read_to_string(home_path.join("EXPERIENCE.md")).unwrap();
+    assert!(exp_content.contains("First test rule for consolidation"));
+    assert!(exp_content.contains("Second test rule for consolidation"));
 
-    // 7. Verify --provider flag is rejected as unknown argument on consolidate
+    // 7. Verify --provider and removed commands (show, setup, prompt) are rejected
     let provider_out = Command::new(exe)
         .env("EXPERIENCED_LLMS_HOME", &home_path)
         .args(["consolidate", "--provider", "gemini"])
         .output()
         .expect("Failed to run consolidate with provider");
     assert!(!provider_out.status.success(), "--provider should be rejected as unknown argument");
-    let provider_err = String::from_utf8_lossy(&provider_out.stderr);
-    assert!(provider_err.contains("unexpected argument '--provider'") || provider_err.contains("unexpected argument"));
 
-    // 8. Test setup --llm configures external_llm_cmd in config.json
+    let show_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .arg("show")
+        .output()
+        .unwrap();
+    assert!(!show_out.status.success(), "'show' command must be rejected as unknown subcommand");
+
     let setup_out = Command::new(exe)
         .env("EXPERIENCED_LLMS_HOME", &home_path)
-        .args(["setup", "--llm", &mock_cmd, "--max-words", "1000"])
+        .args(["setup", "--llm", &mock_cmd])
         .output()
-        .expect("Failed to run setup");
-    assert!(setup_out.status.success(), "setup --llm must succeed");
+        .unwrap();
+    assert!(!setup_out.status.success(), "'setup' command must be rejected as unknown subcommand");
+
+    let prompt_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .args(["prompt", "--target", "worker"])
+        .output()
+        .unwrap();
+    assert!(!prompt_out.status.success(), "'prompt' command must be rejected as unknown subcommand");
+
+    // 8. Configure default external_llm_cmd directly in config.json
+    let cfg_path = home_path.join("config.json");
+    let mut cfg: experienced_llms::config::Config = fs::read_to_string(&cfg_path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+    cfg.external_llm_cmd = Some(mock_cmd.clone());
+    let cfg_json = serde_json::to_string_pretty(&cfg).unwrap();
+    fs::write(&cfg_path, cfg_json).expect("Failed to save config.json");
 
     // 9. Consolidate without --llm succeeds using configured external_llm_cmd
     let consolidate_cfg_out = Command::new(exe)
@@ -801,6 +810,18 @@ fn test_cli_consolidate_execution_and_template_lifecycle() {
         .output()
         .expect("Failed to run consolidate with configured external LLM");
     assert!(consolidate_cfg_out.status.success(), "consolidate using configured LLM must succeed");
+
+    // 10. Self-healing: if EXPERIENCE.md is deleted, consolidate regenerates it
+    let master_file = home_path.join("EXPERIENCE.md");
+    fs::remove_file(&master_file).expect("Failed to delete EXPERIENCE.md");
+    assert!(!master_file.exists());
+    let heal_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home_path)
+        .arg("consolidate")
+        .output()
+        .expect("Failed to run consolidate for self-healing");
+    assert!(heal_out.status.success());
+    assert!(master_file.exists(), "consolidate must self-heal by recreating EXPERIENCE.md");
 }
 
 #[test]

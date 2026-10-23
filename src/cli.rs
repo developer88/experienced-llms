@@ -48,47 +48,20 @@ pub enum Commands {
     },
 
     /// Rebuild clean EXPERIENCE.md directly from active SQLite facts
+    #[command(hide = true)]
     Render {
         /// Override maximum words ceiling for EXPERIENCE.md (default: 1200)
         #[arg(long = "max-words")]
         max_words: Option<usize>,
     },
 
-    /// Display the active master EXPERIENCE.md
-    Show,
-
     /// Show active facts, auto-skills, and schedule state
     Status,
 
-    /// Configure default external LLM CLI command and settings
-    Setup {
-        /// External LLM CLI command (e.g. 'agy query', 'claude', 'ollama run mistral')
-        #[arg(long = "llm")]
-        llm: Option<String>,
-
-        /// Maximum word count for master experience document
-        #[arg(long = "max-words")]
-        max_words: Option<usize>,
-    },
-
-    /// Generate ready-to-inject prompt for LLMs
-    Prompt {
-        /// Target prompt type: 'orchestrator' or 'worker'
-        #[arg(short = 't', long = "target", default_value = "orchestrator")]
-        target: String,
-
-        /// Specific skill key for worker prompt
-        #[arg(long = "skill")]
-        skill: Option<String>,
-
-        /// Scope / project filter
-        #[arg(long = "scope")]
-        scope: Option<String>,
-    },
-
-    /// Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi)
+    /// Install instructions into AI agents (Antigravity skill)
+    #[command(hide = true)]
     Integrate {
-        /// Target agent (antigravity, claude, copilot, cursor, pi, all)
+        /// Target agent (antigravity, skill, all)
         #[arg(short = 't', long = "target", default_value = "all")]
         target: String,
 
@@ -98,6 +71,7 @@ pub enum Commands {
     },
 
     /// Run pending full-stack migrations across database, skills, and configuration
+    #[command(hide = true)]
     Migrate,
 
     /// Initialize SQLite schema, default template, and agent skill
@@ -165,6 +139,7 @@ pub enum Commands {
     },
 
     /// Extract facts from a session transcript file
+    #[command(hide = true)]
     Extract {
         #[arg(short = 'f', long = "file")]
         file: Option<PathBuf>,
@@ -183,9 +158,11 @@ pub enum Commands {
     },
 
     /// Synthesize JIT skills
+    #[command(hide = true)]
     CompileSkills,
 
     /// Display context
+    #[command(hide = true)]
     ShowContext,
 }
 
@@ -248,17 +225,6 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
 
-        Commands::Show => {
-            let master_path = config::get_master_experience_file();
-            if master_path.exists() {
-                let content = fs::read_to_string(&master_path)?;
-                print!("{}", content);
-            } else {
-                println!("No master experience found yet at {}.", master_path.display());
-                println!("Log some directives with 'experienced-llms log' and run 'experienced-llms render'.");
-            }
-        }
-
         Commands::Status => {
             let home = config::get_experienced_home();
             let master_file = config::get_master_experience_file();
@@ -300,42 +266,6 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                 }
             } else {
                 println!("Database not initialized. Run 'experienced-llms init'.");
-            }
-        }
-
-        Commands::Setup { llm, max_words } => {
-            let mut cfg = config::load_config();
-            if let Some(cmd) = llm {
-                cfg.external_llm_cmd = Some(cmd);
-            }
-            if let Some(mw) = max_words {
-                cfg.max_experience_words = mw;
-            }
-
-            config::save_config(&cfg)?;
-            println!("Configuration saved to {}:", config::get_config_file().display());
-
-            let json_str = serde_json::to_string_pretty(&cfg)?;
-            println!("{}", json_str);
-        }
-
-        Commands::Prompt { target, skill: _, scope } => {
-            let master_path = config::get_master_experience_file();
-            let experience = if master_path.exists() {
-                fs::read_to_string(master_path).unwrap_or_default()
-            } else {
-                String::new()
-            };
-
-            if target == "worker" {
-                println!("<EXPERIENCE_WORKER>\n{}\n</EXPERIENCE_WORKER>", experience.trim());
-            } else {
-                let scope_label = scope.as_deref().unwrap_or("global");
-                println!(
-                    "<EXPERIENCED_LLMS_EXPERIENCE scope=\"{}\">\n{}\n</EXPERIENCED_LLMS_EXPERIENCE>",
-                    scope_label,
-                    experience.trim()
-                );
             }
         }
 

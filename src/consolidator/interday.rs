@@ -299,6 +299,12 @@ impl InterdayConsolidator {
         }
         let mut conn = db::get_connection(db_path)?;
 
+        // If master experience does not exist on disk, self-heal by rebuilding from active facts
+        let master_path = self.master_experience_file();
+        if !master_path.exists() {
+            let _ = renderer::rebuild_master_experience(db_path, max_words);
+        }
+
         let (sys_prompt_opt, user_prompt_opt, _meta) = self.build_consolidation_prompt(
             &conn,
             target_date,
@@ -308,8 +314,15 @@ impl InterdayConsolidator {
         let sys_prompt = match sys_prompt_opt {
             Some(s) => s,
             None => {
+                if !master_path.exists() {
+                    let _ = renderer::rebuild_master_experience(db_path, max_words)?;
+                    return Ok((
+                        master_path,
+                        "Rebuilt missing master experience from active facts.".to_string(),
+                    ));
+                }
                 return Ok((
-                    self.master_experience_file(),
+                    master_path,
                     "No active or pending facts to consolidate.".to_string(),
                 ));
             }

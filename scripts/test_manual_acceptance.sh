@@ -187,7 +187,7 @@ echo "--- [Step 6] Testing consolidation with external LLM CLI mock ---"
 
 "${BIN}" consolidate --llm "bash ${MOCK_LLM_SCRIPT}"
 
-SHOW_OUTPUT="$("${BIN}" show)"
+SHOW_OUTPUT="$(cat "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md")"
 echo "${SHOW_OUTPUT}"
 
 if ! echo "${SHOW_OUTPUT}" | grep -q "Always run cargo test in WSL"; then
@@ -217,7 +217,7 @@ if [ ! -f "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md" ]; then
     exit 1
 fi
 
-RENDER_SHOW="$("${BIN}" show)"
+RENDER_SHOW="$(cat "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md")"
 if ! echo "${RENDER_SHOW}" | grep -q "Always run cargo test in WSL"; then
     echo "[-] FAILED: Rendered markdown missing facts from SQLite"
     exit 1
@@ -254,10 +254,10 @@ fi
 echo "[✔] Step 8 PASSED: --prepare and --apply flags are completely rejected."
 
 # ------------------------------------------------------------------------------
-# Step 9: Verification of Removed Cloud Provider & Template Flags & Default LLM Config
+# Step 9: Verification of Removed Commands, Streamlined CLI & Self-Healing
 # ------------------------------------------------------------------------------
 echo ""
-echo "--- [Step 9] Verifying removal of --provider and --template flags, and setup --llm functionality ---"
+echo "--- [Step 9] Verifying removal of show/setup/prompt, and consolidate self-healing ---"
 
 set +e
 "${BIN}" consolidate --provider gemini > /dev/null 2>&1
@@ -279,13 +279,47 @@ if [ "${TEMPLATE_FLAG_EXIT}" -eq 0 ]; then
     exit 1
 fi
 
-# Configure default external LLM command via setup
-"${BIN}" setup --llm "bash ${MOCK_LLM_SCRIPT}" --max-words 1200
+# Verify removed commands (show, setup, prompt) are rejected
+set +e
+"${BIN}" show > /dev/null 2>&1
+SHOW_EXIT=$?
+"${BIN}" setup --llm "test" > /dev/null 2>&1
+SETUP_EXIT=$?
+"${BIN}" prompt --target worker > /dev/null 2>&1
+PROMPT_EXIT=$?
+set -e
+
+if [ "${SHOW_EXIT}" -eq 0 ] || [ "${SETUP_EXIT}" -eq 0 ] || [ "${PROMPT_EXIT}" -eq 0 ]; then
+    echo "[-] FAILED: Obsolete commands (show, setup, prompt) must be rejected!"
+    exit 1
+fi
+
+# Configure default external LLM command directly in config.json
+python3 -c "
+import json, os
+cfg_file = '${EXPERIENCED_LLMS_HOME}/config.json'
+cfg = {}
+if os.path.exists(cfg_file):
+    with open(cfg_file, 'r') as f:
+        cfg = json.load(f)
+cfg['external_llm_cmd'] = 'bash ${MOCK_LLM_SCRIPT}'
+with open(cfg_file, 'w') as f:
+    json.dump(cfg, f, indent=2)
+"
 
 # Verify consolidation runs cleanly using configured default command without explicit --llm flag
 "${BIN}" consolidate
 
-echo "[✔] Step 9 PASSED: --provider and --template flags rejected, and setup --llm default configuration verified."
+# Verify self-healing: remove EXPERIENCE.md and verify consolidate regenerates it
+rm -f "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md"
+"${BIN}" consolidate
+
+if [ ! -f "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md" ]; then
+    echo "[-] FAILED: consolidate must self-heal missing EXPERIENCE.md!"
+    exit 1
+fi
+
+echo "[✔] Step 9 PASSED: Removed commands verified and consolidate self-healing confirmed."
 
 echo ""
 echo "================================================================="

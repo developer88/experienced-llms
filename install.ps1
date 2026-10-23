@@ -118,8 +118,8 @@ Write-Host "==========================================================" -Foregro
 Write-Host ""
 Write-Host "Quick Commands:" -ForegroundColor Yellow
 Write-Host "  experienced-llms log `"Always run npm in WSL`" --category user_preference"
-Write-Host "  experienced-llms show"
 Write-Host "  experienced-llms status"
-Write-Host "  experienced-llms setup --llm `"<cmd>`""
 Write-Host "  experienced-llms consolidate --llm `"<cmd>`""
+Write-Host "  experienced-llms schedule --status"
+Write-Host "  experienced-llms update"
 Write-Host "==========================================================" -ForegroundColor Cyan

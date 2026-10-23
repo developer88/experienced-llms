@@ -61,24 +61,15 @@ experienced-llms log "<concise operational rule>" \
 
 ## 3. Consolidation Engine
 
-Consolidation merges pending intraday facts (`is_consolidated = 0`) into active operational heuristics and updates `EXPERIENCE.md` with zero token waste (no comments, no timestamps).
+Consolidation merges pending intraday facts (`is_consolidated = 0`) into active operational heuristics and updates `EXPERIENCE.md` with zero token waste (no comments, no timestamps). If `EXPERIENCE.md` is ever missing, running `consolidate` automatically regenerates it.
 
 ### Running Consolidation:
 Runs automatically via cron or Windows Task Scheduler, or on demand via terminal:
 ```bash
-# Using external CLI tool (e.g. agy, claude, ollama)
+# Run consolidation with external CLI tool (e.g. agy, claude, ollama)
 experienced-llms consolidate --llm "agy query"
-
-# Or configure default LLM command once:
-experienced-llms setup --llm "agy query"
-experienced-llms consolidate
 ```
 
-### Consolidation Configuration Options:
-- `--max-words <int>`: Override word count limit for `EXPERIENCE.md` (default: 1,200 words, configurable via `config.json`).
-
-### Manual Re-render:
-Rebuild `EXPERIENCE.md` directly from active SQLite facts at any time:
-```bash
-experienced-llms render [--max-words <int>]
-```
+### Consolidation Options:
+- `--max-words <int>`: Override word count limit for `EXPERIENCE.md` (default: 1,200 words, configurable in `~/.experienced-llms/config.json`).
+- `--date <YYYY-MM-DD>`: Target a specific session date for historical consolidation.

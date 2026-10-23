@@ -126,18 +126,12 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 
 | Command | Arguments / Flags | Description |
 |---|---|---|
-| `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an intraday heuristic (fast, local SQLite capture) |
-| `experienced-llms consolidate` | `--date`, `--llm`, `--max-words` | Consolidate pending facts into `EXPERIENCE.md` via LLM |
-| `experienced-llms render` | *(None)* | Rebuild clean `EXPERIENCE.md` directly from active SQLite facts |
-| `experienced-llms show` | *(None)* | Print active `~/.experienced-llms/EXPERIENCE.md` |
-| `experienced-llms status` | *(None)* | Show active facts, auto-skills, and schedule state |
-| `experienced-llms setup` | `--llm`, `--max-words` | Configure default external LLM CLI command and settings |
+| `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an operational heuristic (fast, local SQLite capture) |
+| `experienced-llms consolidate` | `--date`, `--llm`, `--max-words` | Consolidate pending facts and self-heal `EXPERIENCE.md` |
+| `experienced-llms status` | *(None)* | Show active facts, ledger counts, and schedule state |
 | `experienced-llms schedule` | `--install`, `--uninstall`, `--status`, `--time`, `--type` | Manage scheduled nightly consolidation daemon |
-| `experienced-llms prompt` | `--target`, `--skill`, `--scope` | Generate ready-to-inject prompt for orchestrator or worker |
-| `experienced-llms integrate` | `--target`, `--workspace` | Install instructions into AI agents (Antigravity, Claude, Copilot, Cursor, Pi) |
-| `experienced-llms migrate` | *(None)* | Run pending full-stack migrations across DB, skills, and configuration |
-| `experienced-llms init` | `--db-path`, `--yes` | Initialize SQLite schema, directories, template, and initial EXPERIENCE.md |
 | `experienced-llms update` | `--check`, `--yes`, `--tag` | Perform automated in-place self-update to latest release |
+| `experienced-llms init` | `--db-path`, `--yes` | Initialize SQLite schema, directories, template, and initial EXPERIENCE.md |
 | `experienced-llms --version` | `-v` | Display version information (`1.0.0rc4`) |
 
 ---

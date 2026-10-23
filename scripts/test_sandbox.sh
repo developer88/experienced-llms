@@ -80,9 +80,9 @@ if ! echo "${EXP_CONTENT}" | grep -q "Always run isolated tests"; then
 fi
 echo "[+] Verified consolidation pass updated sandbox EXPERIENCE.md."
 
-# 6. Verify show command
-echo "[+] Step 4: Verifying master experience show command..."
-"${CLI_BIN}" show
+# 6. Verify master experience content
+echo "[+] Step 4: Verifying master experience content directly..."
+cat "${SANDBOX_DIR}/.experienced-llms/EXPERIENCE.md"
 
 echo ""
 echo "=========================================================="
