@@ -11,7 +11,7 @@ use crate::intraday;
 use crate::llm_client;
 use crate::models::FactCategory;
 use crate::renderer;
-use crate::scheduler;
+use crate::autoconsolidate;
 use crate::updater;
 
 #[derive(Parser, Debug)]
@@ -55,7 +55,7 @@ pub enum Commands {
         max_words: Option<usize>,
     },
 
-    /// Show active facts, auto-skills, and schedule state
+    /// Show active facts, last consolidation date, and engine status
     Status,
 
     /// Install instructions into AI agents (Antigravity skill)
@@ -117,29 +117,6 @@ pub enum Commands {
         /// Override maximum words ceiling for EXPERIENCE.md (default: 1200)
         #[arg(long = "max-words")]
         max_words: Option<usize>,
-    },
-
-    /// Manage scheduled nightly consolidation daemon
-    Schedule {
-        /// Install the scheduled job
-        #[arg(long = "install")]
-        install: bool,
-
-        /// Uninstall the scheduled job
-        #[arg(long = "uninstall")]
-        uninstall: bool,
-
-        /// Check schedule status
-        #[arg(long = "status")]
-        status: bool,
-
-        /// Daily execution time in HH:MM format (default: 02:00)
-        #[arg(long = "time", default_value = "02:00")]
-        time: String,
-
-        /// Scheduler type: 'auto', 'cron', or 'schtasks'
-        #[arg(long = "type", default_value = "auto")]
-        scheduler_type: String,
     },
 
     /// Extract facts from a session transcript file
@@ -220,6 +197,9 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             )?;
 
             println!("Logged [{}] ({}): {}", fact.category.as_str().to_uppercase(), fact.scope, fact.rule_statement);
+
+            // Auto-consolidation: check if previous consolidation was on a previous day
+            let _ = autoconsolidate::check_and_run_autoconsolidation(None, None);
         }
 
         Commands::Render { max_words } => {
@@ -242,10 +222,21 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                 "Master Experience: {}",
                 if master_file.exists() { "Exists" } else { "Not yet created" }
             );
-            println!("Schedule: {}", scheduler::get_schedule_status("auto"));
+
+            if let Some(lock_meta) = autoconsolidate::get_lock_status(&home) {
+                let remaining = lock_meta.expires_at_unix - chrono::Utc::now().timestamp();
+                println!("Consolidation Lock: Active (expires in {}s, PID: {})", remaining.max(0), lock_meta.pid);
+            }
 
             if db_path.exists() {
                 if let Ok(conn) = db::get_connection(Some(&db_path)) {
+                    let last_cons = autoconsolidate::get_last_consolidation_date(&conn)
+                        .ok()
+                        .flatten()
+                        .map(|d| d.format("%Y-%m-%d").to_string())
+                        .unwrap_or_else(|| "Never".to_string());
+                    println!("Last Consolidation: {}", last_cons);
+
                     let facts = db::get_active_facts(&conn, None).unwrap_or_default();
                     let skills = db::get_active_skills(&conn).unwrap_or_default();
 
@@ -319,14 +310,22 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
 
+            let home = config::get_experienced_home();
+            let lock = autoconsolidate::ConsolidationLock::try_acquire(&home).ok().flatten();
+
             let consolidator = consolidator::InterdayConsolidator::new(Some(client));
             let engine_type = "cli_external_cmd";
-            match consolidator.consolidate(
+            let res = consolidator.consolidate(
                 date.as_deref(),
                 max_words,
                 Some(engine_type),
                 None,
-            ) {
+            );
+            if let Some(l) = lock {
+                l.release();
+            }
+
+            match res {
                 Ok((master_path, summary)) => {
                     println!("[✓] Consolidation complete: {}", master_path.display());
                     println!("[✓] Summary: {}", summary);
@@ -335,26 +334,6 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                     eprintln!("[-] Consolidation aborted without mutating facts: {}", e);
                     std::process::exit(1);
                 }
-            }
-        }
-
-        Commands::Schedule {
-            install,
-            uninstall,
-            status: _,
-            time,
-            scheduler_type,
-        } => {
-            if install {
-                let msg = scheduler::install_schedule(&time, &scheduler_type)?;
-                println!("{}", msg);
-            } else if uninstall {
-                let msg = scheduler::uninstall_schedule(&scheduler_type)?;
-                println!("{}", msg);
-            } else {
-                println!("Scheduler Status:");
-                let st = scheduler::get_schedule_status(&scheduler_type);
-                println!("  {}", st);
             }
         }
 

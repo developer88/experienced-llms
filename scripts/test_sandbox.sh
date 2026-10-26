@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Isolated Full-Cycle Acceptance Test for Experienced LLMs
-# Runs in an isolated sandbox directory without touching host ~/.experienced-llms or host crontab.
+# Runs in an isolated sandbox directory without touching host ~/.experienced-llms.
 set -e
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -87,5 +87,5 @@ cat "${SANDBOX_DIR}/.experienced-llms/EXPERIENCE.md"
 echo ""
 echo "=========================================================="
 echo "[SUCCESS] All isolated acceptance checks passed!"
-echo "Zero changes were made to host ~/.experienced-llms or crontab."
+echo "Zero changes were made to host ~/.experienced-llms."
 echo "=========================================================="

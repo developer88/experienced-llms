@@ -1,6 +1,6 @@
 ---
 name: experienced-llm
-description: Autonomous operational experience interface to load past heuristics, log runtime lessons, and execute scheduled consolidation.
+description: Autonomous operational experience interface to load past heuristics, log runtime lessons, and execute daily auto-consolidation.
 version: 1.0.0rc5
 author: developer88
 repository: https://github.com/developer88/experienced-llms
@@ -68,7 +68,7 @@ experienced-llms log "<concise operational rule>" \
 Consolidation merges pending intraday facts (`is_consolidated = 0`) into active operational heuristics and updates `EXPERIENCE.md` with zero token waste (no comments, no timestamps). If `EXPERIENCE.md` is ever missing, running `consolidate` automatically regenerates it.
 
 ### Running Consolidation:
-Runs automatically via cron or Windows Task Scheduler, or on demand via terminal:
+Runs automatically on the first `log` of each day (protected by a 20-minute concurrency lock), or on demand via terminal:
 ```bash
 # Run consolidation with external CLI tool (e.g. agy, claude, ollama)
 experienced-llms consolidate --llm "agy query"

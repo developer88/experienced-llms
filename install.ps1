@@ -106,10 +106,6 @@ if ($InitHelp -match "--yes") {
 Write-Host "[+] Configuring AI Agent integrations..." -ForegroundColor Cyan
 & "$DestExe" integrate --target all
 
-# 6. Configure Nightly Consolidation Schedule
-Write-Host "[+] Installing nightly consolidation schedule in Windows Task Scheduler..." -ForegroundColor Cyan
-& "$DestExe" schedule --install --time "02:00"
-
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "  [OK] Experienced LLMs Successfully Installed & Active!" -ForegroundColor Green
@@ -120,6 +116,5 @@ Write-Host "Quick Commands:" -ForegroundColor Yellow
 Write-Host "  experienced-llms log `"Always run npm in WSL`" --category user_preference"
 Write-Host "  experienced-llms status"
 Write-Host "  experienced-llms consolidate --llm `"<cmd>`""
-Write-Host "  experienced-llms schedule --status"
 Write-Host "  experienced-llms update"
 Write-Host "==========================================================" -ForegroundColor Cyan

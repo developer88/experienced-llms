@@ -182,10 +182,6 @@ fi
 echo "[+] Configuring AI Agent integrations..."
 "${TARGET_BIN}" integrate --target all
 
-# 7. Configure Nightly Consolidation Schedule
-echo "[+] Installing nightly consolidation schedule..."
-"${TARGET_BIN}" schedule --install --time "02:00"
-
 echo ""
 echo "=========================================================="
 echo "  [✔] Experienced LLMs Successfully Installed & Active!"
@@ -196,6 +192,5 @@ echo "Quick Commands:"
 echo "  experienced-llms log \"Always run npm in WSL\" --category user_preference"
 echo "  experienced-llms status"
 echo "  experienced-llms consolidate --llm \"<cmd>\""
-echo "  experienced-llms schedule --status"
 echo "  experienced-llms update"
 echo "=========================================================="

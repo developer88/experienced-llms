@@ -32,7 +32,7 @@ Experienced LLMs operates with a strict privacy guarantee and a clean 2-componen
 ## 🏗️ How It Works
 
 1. **Daytime Operational Logging**: During normal work, you or your agent log lessons and constraints using `experienced-llms log "<directive>" --reason "<why>"`. It executes locally in milliseconds into SQLite with zero token waste.
-2. **Consolidation (LLM)**: On a nightly schedule (or on demand), `experienced-llms consolidate` reads pending facts, synthesizes and deduplicates them using `~/.experienced-llms/template.md`, and supersedes outdated rules.
+2. **Consolidation (LLM)**: Automatically triggered on the first `log` of each day (or on demand via `experienced-llms consolidate`), the engine synthesizes and deduplicates pending facts using `~/.experienced-llms/template.md`, supersedes outdated rules, and updates `EXPERIENCE.md`. A 20-minute concurrency lock prevents overlapping runs.
 3. **Continuous Execution**: The resulting high-density `EXPERIENCE.md` is immediately available to all your local AI agents on their next prompt.
 
 For detailed architecture diagrams and design specifications, see [System Architecture](docs/ARCHITECTURE.md).
@@ -129,10 +129,9 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 
 | Command | Arguments / Flags | Description |
 |---|---|---|
-| `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an operational heuristic (fast, local SQLite capture) |
-| `experienced-llms consolidate` | `--date`, `--llm`, `--max-words` | Consolidate pending facts and self-heal `EXPERIENCE.md` |
-| `experienced-llms status` | *(None)* | Show active facts, ledger counts, and schedule state |
-| `experienced-llms schedule` | `--install`, `--uninstall`, `--status`, `--time`, `--type` | Manage scheduled nightly consolidation daemon |
+| `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an operational heuristic (fast, local SQLite capture with daily auto-consolidation) |
+| `experienced-llms consolidate` | `--date`, `--llm`, `--max-words` | Consolidate pending facts and self-heal `EXPERIENCE.md` on demand |
+| `experienced-llms status` | *(None)* | Show active facts, ledger counts, and last consolidation date |
 | `experienced-llms update` | `--check`, `--yes`, `--tag` | Perform automated in-place self-update to latest release |
 | `experienced-llms init` | `--skill-dir <PATH>`, `--db-path <PATH>`, `--yes` | Initialize SQLite schema, directories, template, and configure agent skill |
 | `experienced-llms --version` | `-v` | Display version information (`1.0.0rc5`) |

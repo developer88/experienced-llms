@@ -6,7 +6,7 @@
 
 ## 1. The Consolidation Cycle
 
-Consolidation runs either autonomously via a scheduled daemon (cron or Windows Task Scheduler) or on demand via the CLI:
+Consolidation runs either autonomously upon the first `log` call of each day (guarded by a 20-minute concurrency lock) or on demand via the CLI:
 
 ```
        [ Intraday Capture ]

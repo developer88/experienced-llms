@@ -7,5 +7,5 @@ pub mod intraday;
 pub mod llm_client;
 pub mod models;
 pub mod renderer;
-pub mod scheduler;
+pub mod autoconsolidate;
 pub mod updater;

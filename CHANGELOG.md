@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Daily Auto-Consolidation**: `experienced-llms log` automatically checks if the most recent consolidation occurred on a previous day (or never); if so, it immediately executes consolidation following the successful log entry.
+- **20-Minute Concurrency Lock**: Protected auto-consolidation with a resilient 20-minute file lock (`consolidation.lock`) preventing overlapping runs across concurrent processes, and safely allowing retries after 20 minutes if a consolidation failure occurs.
+- **Engine Status Enhancement**: `experienced-llms status` now displays the last consolidation date and active lock status.
+
+### Removed
+- **Scheduler & Cron Feature**: Completely removed `experienced-llms schedule` CLI command, Windows Task Scheduler integrations, and POSIX crontab setup in favor of self-contained auto-consolidation.
+
+---
+
 ## [1.0.0rc5] - 2026-10-23
 
 ### Added

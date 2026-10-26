@@ -1,7 +1,7 @@
 # Testing Guidelines for Experienced LLMs
 
 > **CRITICAL DIRECTIVE FOR AI CODING AGENTS (LLMs) & DEVELOPERS**:
-> Never run tests, installers, or validation passes that mutate or pollute the host user's active environment (`~/.experienced-llms`, live SQLite `memory.db`, host crontab, or host Windows Task Scheduler).
+> Never run tests, installers, or validation passes that mutate or pollute the host user's active environment (`~/.experienced-llms` or live SQLite `memory.db`).
 > Always use the isolated testing tools provided below.
 
 ---
@@ -57,7 +57,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\test_install_windows
 ```
 - Tests sandboxed local installation mode.
 - Tests streamed execution (`Invoke-Expression`) downloading Windows `.exe` from GitHub CDN.
-- Verifies PATH registration and Task Scheduler setup.
+- Verifies PATH registration and binary installation.
 - Restores user PATH with zero host pollution.
 
 ---

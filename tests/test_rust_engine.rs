@@ -55,7 +55,6 @@ fn test_config_defaults_and_roundtrip() {
 
     let cfg = Config::default();
     assert_eq!(cfg.max_experience_words, 1200);
-    assert_eq!(cfg.schedule_time, "02:00");
     assert_eq!(cfg.provider, "gemini");
 
     let json = serde_json::to_string_pretty(&cfg).expect("Failed to serialize config");
@@ -825,16 +824,183 @@ fn test_cli_consolidate_execution_and_template_lifecycle() {
 }
 
 #[test]
-fn test_scheduler_time_parsing_and_status() {
-    assert_eq!(experienced_llms::scheduler::parse_time("02:00"), (2, 0));
-    assert_eq!(experienced_llms::scheduler::parse_time("15:45"), (15, 45));
-    assert_eq!(experienced_llms::scheduler::parse_time("invalid"), (2, 0));
+fn test_autoconsolidate_logic_and_lock_lifecycle() {
+    use experienced_llms::autoconsolidate::{
+        self, ConsolidationLock, parse_consolidation_date, should_autoconsolidate, get_last_consolidation_date
+    };
+    use chrono::{Duration, Local, NaiveDate};
 
-    let status = experienced_llms::scheduler::get_schedule_status("auto");
-    assert!(!status.is_empty());
+    // 1. Test date parsing across various formats
+    let parsed_rfc = parse_consolidation_date("2026-10-26T12:00:00+00:00");
+    assert!(parsed_rfc.is_some());
+    let parsed_sqlite = parse_consolidation_date("2026-10-26 12:00:00");
+    assert_eq!(parsed_sqlite, Some(NaiveDate::from_ymd_opt(2026, 10, 26).unwrap()));
+    let parsed_date = parse_consolidation_date("2026-10-26");
+    assert_eq!(parsed_date, Some(NaiveDate::from_ymd_opt(2026, 10, 26).unwrap()));
+    assert_eq!(parse_consolidation_date(""), None);
 
-    let uninst = experienced_llms::scheduler::uninstall_schedule("auto");
-    assert!(uninst.is_ok());
+    // 2. Test database consolidation checking
+    let dir = tempdir().expect("Failed to create tempdir");
+    let db_path = dir.path().join("auto_cons.db");
+    let conn = db::init_db(Some(&db_path)).expect("Failed to init db");
+
+    let today = Local::now().date_naive();
+    let yesterday = today - Duration::days(1);
+
+    // Initial state: never consolidated -> should auto-consolidate
+    assert!(should_autoconsolidate(&conn, today).unwrap());
+    assert_eq!(get_last_consolidation_date(&conn).unwrap(), None);
+
+    // Insert yesterday's consolidation -> should still auto-consolidate today
+    let yesterday_str = yesterday.format("%Y-%m-%d 10:00:00").to_string();
+    conn.execute(
+        "INSERT INTO consolidations (consolidated_at, engine_type, facts_processed, facts_superseded, summary_of_changes) VALUES (?, 'test', 1, 0, 'Yesterday run')",
+        rusqlite::params![yesterday_str],
+    ).unwrap();
+
+    assert_eq!(get_last_consolidation_date(&conn).unwrap(), Some(yesterday));
+    assert!(should_autoconsolidate(&conn, today).unwrap());
+
+    // Insert today's consolidation -> should NOT auto-consolidate
+    let today_rfc = Local::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO consolidations (consolidated_at, engine_type, facts_processed, facts_superseded, summary_of_changes) VALUES (?, 'test', 2, 0, 'Today run')",
+        rusqlite::params![today_rfc],
+    ).unwrap();
+
+    assert_eq!(get_last_consolidation_date(&conn).unwrap(), Some(today));
+    assert!(!should_autoconsolidate(&conn, today).unwrap());
+
+    // 3. Test 20-minute Concurrency Lock Lifecycle
+    let home_dir = dir.path().join("home");
+    fs::create_dir_all(&home_dir).unwrap();
+
+    // Acquire lock
+    let lock1 = ConsolidationLock::try_acquire(&home_dir).expect("Failed to acquire lock");
+    assert!(lock1.is_some(), "Lock 1 must be acquired");
+    let lock1 = lock1.unwrap();
+
+    // Concurrent acquire must return None while lock is active
+    let lock2 = ConsolidationLock::try_acquire(&home_dir).expect("Failed to check lock");
+    assert!(lock2.is_none(), "Lock 2 must be rejected while lock 1 is active");
+
+    // Lock status query
+    let status = autoconsolidate::get_lock_status(&home_dir);
+    assert!(status.is_some());
+    let meta = status.unwrap();
+    assert!(meta.expires_at_unix > chrono::Utc::now().timestamp());
+
+    // Retain on failure simulates process failure/abortion without releasing lock
+    lock1.retain_on_failure();
+    assert!(home_dir.join("consolidation.lock").exists());
+
+    // Simulate an expired lock (> 20 minutes old)
+    let expired_meta = autoconsolidate::LockMetadata {
+        locked_at: (Local::now() - Duration::minutes(25)).to_rfc3339(),
+        expires_at_unix: chrono::Utc::now().timestamp() - 300, // expired 5 mins ago
+        pid: 99999,
+    };
+    fs::write(
+        home_dir.join("consolidation.lock"),
+        serde_json::to_string_pretty(&expired_meta).unwrap(),
+    ).unwrap();
+
+    // Expired lock should be automatically overridden and successfully acquired
+    let lock3 = ConsolidationLock::try_acquire(&home_dir).expect("Failed to acquire expired lock");
+    assert!(lock3.is_some(), "Expired lock must be overridden and acquired");
+
+    // Release lock cleans up the lock file
+    lock3.unwrap().release();
+    assert!(!home_dir.join("consolidation.lock").exists(), "Release must remove lock file");
+}
+
+#[test]
+fn test_autoconsolidate_execution_on_log() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home = dir.path().to_path_buf();
+    let exe = env!("CARGO_BIN_EXE_experienced-llms");
+
+    // 1. Initialize environment
+    let init_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["init", "--yes"])
+        .output()
+        .expect("Failed to run init");
+    assert!(init_out.status.success());
+
+    // 2. Set up mock LLM script
+    let mock_json = serde_json::json!({
+        "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n- Autoconsolidated rule",
+        "processed_pending_ids": [1],
+        "superseded_fact_ids": [],
+        "summary_of_changes": "Autoconsolidation executed successfully"
+    });
+    let mock_script = home.join("mock_autoconsolidate.sh");
+    fs::write(
+        &mock_script,
+        format!("#!/bin/sh\ncat << 'EOF'\n{}\nEOF\n", mock_json),
+    ).expect("Failed to write mock script");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&mock_script).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&mock_script, perms).unwrap();
+    }
+    let mock_cmd = format!("sh {}", mock_script.display());
+
+    // Configure external LLM cmd in config.json
+    let cfg_path = home.join("config.json");
+    let mut cfg: experienced_llms::config::Config = fs::read_to_string(&cfg_path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default();
+    cfg.external_llm_cmd = Some(mock_cmd);
+    fs::write(&cfg_path, serde_json::to_string_pretty(&cfg).unwrap()).unwrap();
+
+    // 3. First log: last consolidation is None -> Auto-consolidation runs!
+    let log1_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["log", "First test rule for autoconsolidation", "--category", "user_preference"])
+        .output()
+        .expect("Failed to log 1");
+    assert!(log1_out.status.success());
+    let log1_str = String::from_utf8_lossy(&log1_out.stdout);
+    assert!(log1_str.contains("Auto-consolidation complete"), "Must run auto-consolidation on first log: {}", log1_str);
+
+    // Verify EXPERIENCE.md was created by auto-consolidation
+    let exp_path = home.join("EXPERIENCE.md");
+    assert!(exp_path.exists());
+    let exp_content = fs::read_to_string(&exp_path).unwrap();
+    assert!(exp_content.contains("Autoconsolidated rule"));
+
+    // 4. Second log on SAME day: consolidation already happened today -> Auto-consolidation skipped!
+    let log2_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["log", "Second test rule for autoconsolidation", "--category", "defensive_heuristic"])
+        .output()
+        .expect("Failed to log 2");
+    assert!(log2_out.status.success());
+    let log2_str = String::from_utf8_lossy(&log2_out.stdout);
+    assert!(!log2_str.contains("Auto-consolidation complete"), "Must NOT run auto-consolidation twice on same day");
+
+    // 5. Simulate yesterday's date in SQLite consolidations table -> Next log triggers auto-consolidation!
+    let db_path = home.join("memory.db");
+    let conn = db::get_connection(Some(&db_path)).unwrap();
+    let yesterday = (chrono::Local::now() - chrono::Duration::days(1)).format("%Y-%m-%d 10:00:00").to_string();
+    conn.execute(
+        "UPDATE consolidations SET consolidated_at = ?",
+        rusqlite::params![yesterday],
+    ).unwrap();
+
+    let log3_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["log", "Third test rule next day", "--category", "project_gotcha"])
+        .output()
+        .expect("Failed to log 3");
+    assert!(log3_out.status.success());
+    let log3_str = String::from_utf8_lossy(&log3_out.stdout);
+    assert!(log3_str.contains("Auto-consolidation complete"), "Must trigger auto-consolidation when last run was on previous day");
 }
 
 #[test]
@@ -902,7 +1068,7 @@ fn test_template_prompt_and_backup() {
 }
 
 #[test]
-fn test_cli_integrate_and_schedule_commands() {
+fn test_cli_integrate_and_status_commands() {
     let dir = tempdir().expect("Failed to create tempdir");
     let ws = dir.path().to_path_buf();
     let exe = env!("CARGO_BIN_EXE_experienced-llms");
@@ -922,14 +1088,15 @@ fn test_cli_integrate_and_schedule_commands() {
     assert!(out_all.status.success());
     assert!(!ws.join("AGENTS.md").exists(), "AGENTS.md must NOT be created in workspace");
 
-    // 2. Schedule status
+    // 2. Status command shows system status without scheduler
     let out_status = Command::new(exe)
-        .args(["schedule", "--status"])
+        .arg("status")
         .output()
-        .expect("Failed to run schedule status");
+        .expect("Failed to run status");
     assert!(out_status.status.success());
     let status_str = String::from_utf8_lossy(&out_status.stdout);
-    assert!(status_str.contains("Scheduler Status:"));
+    assert!(status_str.contains("Master Experience:"));
+    assert!(!status_str.contains("Scheduler Status:"));
 
     // 3. Update CLI command check flag
     let out_update = Command::new(exe)

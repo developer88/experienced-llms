@@ -267,9 +267,11 @@ impl InterdayConsolidator {
 
         // 4. Record audit in consolidations table
         let facts_superseded = payload.superseded_fact_ids.len() + payload.superseded_facts.len();
+        let now_str = chrono::Local::now().to_rfc3339();
         tx.execute(
-            "INSERT INTO consolidations (engine_type, facts_processed, facts_superseded, summary_of_changes) VALUES (?, ?, ?, ?)",
+            "INSERT INTO consolidations (consolidated_at, engine_type, facts_processed, facts_superseded, summary_of_changes) VALUES (?, ?, ?, ?, ?)",
             rusqlite::params![
+                now_str,
                 engine_type,
                 processed_ids.len() as i64,
                 facts_superseded as i64,

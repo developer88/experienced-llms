@@ -4,7 +4,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const DEFAULT_MAX_EXPERIENCE_WORDS: usize = 1200;
-pub const DEFAULT_SCHEDULE_TIME: &str = "02:00";
 
 pub const STARTER_EXPERIENCE_TEMPLATE: &str = r#"# Master AI Experience
 
@@ -136,8 +135,6 @@ pub struct Config {
     pub ollama_base_url: String,
     #[serde(default = "default_ollama_model")]
     pub ollama_model: String,
-    #[serde(default = "default_schedule_time")]
-    pub schedule_time: String,
     #[serde(default = "default_max_experience_words")]
     pub max_experience_words: usize,
     #[serde(default)]
@@ -174,10 +171,6 @@ fn default_ollama_model() -> String {
     "qwen2.5-coder:7b".to_string()
 }
 
-fn default_schedule_time() -> String {
-    DEFAULT_SCHEDULE_TIME.to_string()
-}
-
 fn default_max_experience_words() -> usize {
     DEFAULT_MAX_EXPERIENCE_WORDS
 }
@@ -195,7 +188,6 @@ impl Default for Config {
             openai_base_url: env::var("OPENAI_BASE_URL").unwrap_or_else(|_| default_openai_base_url()),
             ollama_base_url: env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| default_ollama_base_url()),
             ollama_model: env::var("OLLAMA_MODEL").unwrap_or_else(|_| default_ollama_model()),
-            schedule_time: default_schedule_time(),
             max_experience_words: default_max_experience_words(),
             external_llm_cmd: env::var("EXPERIENCED_LLMS_EXTERNAL_CMD").ok().filter(|s| !s.trim().is_empty()),
             skill_dir: env::var("EXPERIENCED_LLMS_SKILL_DIR").ok().filter(|s| !s.trim().is_empty()),
