@@ -58,10 +58,48 @@ fi
 echo "[✔] Step 1 PASSED: init created memory.db, template.md, and EXPERIENCE.md."
 
 # ------------------------------------------------------------------------------
-# Step 2: Log Daytime Operational Rules
+# Step 2: Log Daytime Operational Rules & Fail-Hard Verification
 # ------------------------------------------------------------------------------
 echo ""
-echo "--- [Step 2] Testing 'log' command ---"
+echo "--- [Step 2] Testing 'log' command and auto-consolidation ---"
+
+# Create a mock LLM that produces compliant JSON
+MOCK_LLM_SCRIPT="${ACCEPT_DIR}/mock_llm.sh"
+cat << 'EOF' > "${MOCK_LLM_SCRIPT}"
+#!/usr/bin/env bash
+cat << 'JSON'
+{
+  "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n- Always run cargo test in WSL\n\n## 2. Defensive Safeguards & Heuristics\n- Always verify .env is in .gitignore before commit",
+  "processed_pending_ids": [1, 2],
+  "superseded_fact_ids": [],
+  "summary_of_changes": "Consolidated WSL and security rules into master experience."
+}
+JSON
+EOF
+chmod +x "${MOCK_LLM_SCRIPT}"
+
+# 2a. Verify log fails hard when auto-consolidation lacks an LLM command
+set +e
+LOG_FAIL_OUT="$("${BIN}" log "Failing rule" 2>&1)"
+LOG_FAIL_EXIT=$?
+set -e
+
+if [ "${LOG_FAIL_EXIT}" -eq 0 ]; then
+    echo "[-] FAILED: 'log' should have failed hard when auto-consolidation lacks an LLM command!"
+    exit 1
+fi
+if echo "${LOG_FAIL_OUT}" | grep -qi "Auto-consolidation requires an LLM CLI"; then
+    echo "[✔] Step 2a PASSED: 'log' failed hard with controlled error message."
+else
+    echo "[-] FAILED: Unexpected error message when no LLM provided to log:"
+    echo "    ${LOG_FAIL_OUT}"
+    exit 1
+fi
+
+# 2b. Configure LLM command via new 'config --llm' command
+"${BIN}" config --llm "bash ${MOCK_LLM_SCRIPT}"
+
+# 2c. Now log succeeds and auto-consolidates
 "${BIN}" log "Always run cargo test in WSL" \
     --category user_preference \
     --scope rust \
@@ -72,7 +110,7 @@ echo "--- [Step 2] Testing 'log' command ---"
     --scope security \
     --reason "Prevent API secret leaks"
 
-echo "[✔] Step 2 PASSED: Logged 2 heuristics."
+echo "[✔] Step 2 PASSED: Configured LLM, logged 2 heuristics, and verified auto-consolidation."
 
 # ------------------------------------------------------------------------------
 # Step 3: Inspect Status & Verify Pending State
@@ -116,6 +154,8 @@ echo ""
 echo "--- [Step 5] Testing Missing LLM Validation and Template Fail-Hard Guarantee ---"
 
 # 5a. Consolidate without LLM must fail cleanly
+"${BIN}" config --clear-llm > /dev/null
+
 set +e
 NO_LLM_OUTPUT="$("${BIN}" consolidate 2>&1)"
 NO_LLM_EXIT=$?
@@ -134,20 +174,8 @@ else
     exit 1
 fi
 
-# Create a mock LLM that produces compliant JSON
-MOCK_LLM_SCRIPT="${ACCEPT_DIR}/mock_llm.sh"
-cat << 'EOF' > "${MOCK_LLM_SCRIPT}"
-#!/usr/bin/env bash
-cat << 'JSON'
-{
-  "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n- Always run cargo test in WSL\n\n## 2. Defensive Safeguards & Heuristics\n- Always verify .env is in .gitignore before commit",
-  "processed_pending_ids": [1, 2],
-  "superseded_fact_ids": [],
-  "summary_of_changes": "Consolidated WSL and security rules into master experience."
-}
-JSON
-EOF
-chmod +x "${MOCK_LLM_SCRIPT}"
+# Restore mock LLM command
+"${BIN}" config --llm "bash ${MOCK_LLM_SCRIPT}" > /dev/null
 
 # 5b. Consolidate with LLM but missing template must fail hard
 rm -f "${EXPERIENCED_LLMS_HOME}/template.md"

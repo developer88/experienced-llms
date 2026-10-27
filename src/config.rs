@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 pub const DEFAULT_MAX_EXPERIENCE_WORDS: usize = 1200;
@@ -291,7 +291,7 @@ pub fn ensure_llm_cmd_with_prompt(auto_yes: bool, cli_llm: Option<&str>) -> std:
         }
     }
 
-    if auto_yes {
+    if auto_yes || !std::io::stdin().is_terminal() {
         return Ok(cfg.external_llm_cmd);
     }
 
