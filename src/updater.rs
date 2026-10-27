@@ -142,6 +142,7 @@ pub fn run_self_update(check: bool, auto_yes: bool, tag: Option<&str>) -> Result
     crate::db::run_migrations(&conn)?;
     crate::config::ensure_template_with_prompt(&crate::config::get_experienced_home(), auto_yes)?;
     crate::integrations::ensure_skill_with_prompt(None, auto_yes)?;
+    crate::config::ensure_llm_cmd_with_prompt(auto_yes, None)?;
     let (count, _) = crate::renderer::rebuild_master_experience(None, None)?;
     println!("[✓] Re-rendered active experience ({} active facts).", count);
     println!("==========================================================");

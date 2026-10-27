@@ -132,8 +132,9 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 | `experienced-llms log "<rule>"` | `--category`, `--scope`, `--reason`, `--session-id` | Log an operational heuristic (fast, local SQLite capture with daily auto-consolidation) |
 | `experienced-llms consolidate` | `--date`, `--llm`, `--max-words` | Consolidate pending facts and self-heal `EXPERIENCE.md` on demand |
 | `experienced-llms status` | *(None)* | Show active facts, ledger counts, and last consolidation date |
+| `experienced-llms config` | `--llm "<cmd>"`, `--clear-llm`, `--max-words`, `--skill-dir`, `--show` | View or adjust configuration (LLM CLI command, word limits, skill path) |
 | `experienced-llms update` | `--check`, `--yes`, `--tag` | Perform automated in-place self-update to latest release |
-| `experienced-llms init` | `--skill-dir <PATH>`, `--db-path <PATH>`, `--yes` | Initialize SQLite schema, directories, template, and configure agent skill |
+| `experienced-llms init` | `--llm "<cmd>"`, `--skill-dir <PATH>`, `--db-path <PATH>`, `--yes` | Initialize SQLite schema, directories, template, LLM command, and configure agent skill |
 | `experienced-llms --version` | `-v` | Display version information (`1.0.0rc5`) |
 
 ---

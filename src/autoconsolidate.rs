@@ -201,13 +201,12 @@ pub fn check_and_run_autoconsolidation(
         }
     };
 
-    // Check if an LLM is configured
+    // Check if an LLM is configured - fails hard if missing
     let client = match llm_client::get_llm_client(None) {
         Ok(c) => c,
         Err(_) => {
-            // No LLM configured; release lock cleanly
-            lock.release();
-            return Ok(false);
+            lock.retain_on_failure();
+            return Err("No LLM CLI command is configured. Auto-consolidation requires an LLM CLI to consolidate operational memory into EXPERIENCE.md.\n    To configure an LLM command, run:\n      experienced-llms config --llm \"<cmd>\"\n    Examples:\n      experienced-llms config --llm \"agy query\"\n      experienced-llms config --llm \"claude -p\"\n      experienced-llms config --llm \"ollama run mistral\"\n    Or set the EXPERIENCED_LLMS_EXTERNAL_CMD environment variable.".into());
         }
     };
 
@@ -225,13 +224,8 @@ pub fn check_and_run_autoconsolidation(
             Ok(true)
         }
         Err(err) => {
-            eprintln!(
-                "[!] Auto-consolidation failed: {}. Concurrency lock will expire in 20 minutes.",
-                err
-            );
-            // Retain the lock on failure so subsequent `log` calls within 20 minutes do not spam errors
             lock.retain_on_failure();
-            Err(err)
+            Err(format!("Auto-consolidation execution failed: {}.\n    Check your LLM configuration with 'experienced-llms config' or test with 'experienced-llms consolidate --llm \"<cmd>\"'.", err).into())
         }
     }
 }

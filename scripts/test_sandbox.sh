@@ -42,22 +42,8 @@ if [ ! -f "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md" ]; then
 fi
 echo "[+] Verified sandbox storage initialized at ${EXPERIENCED_LLMS_HOME}"
 
-# 4. Test deterministic intraday logging
-echo "[+] Step 2: Testing intraday logging in sandbox..."
-"${CLI_BIN}" log "Always run isolated tests in temporary sandbox" \
-    --category "defensive_heuristic" \
-    --reason "Prevent host pollution" \
-    --scope "test-project"
-
-STATUS_OUTPUT="$("${CLI_BIN}" status)"
-if ! echo "${STATUS_OUTPUT}" | grep -q "Always run isolated tests"; then
-    echo "[-] Error: Logged rule not found in status output!"
-    exit 1
-fi
-echo "[+] Verified fact recorded into sandbox SQLite database."
-
-# 5. Test interday consolidation with mock LLM
-echo "[+] Step 3: Testing consolidation pass in sandbox..."
+# 4. Prepare mock LLM and test auto-consolidation via log
+echo "[+] Step 2: Configuring mock LLM and testing auto-consolidation via log..."
 MOCK_LLM_SCRIPT="${SANDBOX_DIR}/mock_llm.sh"
 cat << 'EOF' > "${MOCK_LLM_SCRIPT}"
 #!/bin/sh
@@ -71,7 +57,23 @@ cat << 'JSON_EOF'
 JSON_EOF
 EOF
 chmod +x "${MOCK_LLM_SCRIPT}"
-"${CLI_BIN}" consolidate --llm "${MOCK_LLM_SCRIPT}"
+"${CLI_BIN}" config --llm "${MOCK_LLM_SCRIPT}"
+
+"${CLI_BIN}" log "Always run isolated tests in temporary sandbox" \
+    --category "defensive_heuristic" \
+    --reason "Prevent host pollution" \
+    --scope "test-project"
+
+STATUS_OUTPUT="$("${CLI_BIN}" status)"
+if ! echo "${STATUS_OUTPUT}" | grep -q "Always run isolated tests"; then
+    echo "[-] Error: Logged rule not found in status output!"
+    exit 1
+fi
+echo "[+] Verified fact recorded into sandbox SQLite database."
+
+# 5. Test manual on-demand consolidation pass
+echo "[+] Step 3: Testing manual consolidation pass in sandbox..."
+"${CLI_BIN}" consolidate
 
 EXP_CONTENT="$(cat "${EXPERIENCED_LLMS_HOME}/EXPERIENCE.md")"
 if ! echo "${EXP_CONTENT}" | grep -q "Always run isolated tests"; then

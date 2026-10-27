@@ -77,3 +77,30 @@ experienced-llms consolidate --llm "agy query"
 ### Consolidation Options:
 - `--max-words <int>`: Override word count limit for `EXPERIENCE.md` (default: 1,200 words, configurable in `~/.experienced-llms/config.json`).
 - `--date <YYYY-MM-DD>`: Target a specific session date for historical consolidation.
+
+---
+
+## 4. LLM CLI Configuration & Error Recovery
+
+Consolidation requires an external LLM CLI command to synthesize and deduplicate heuristics (there is no default fallback; default is null).
+
+### Setting or Adjusting the LLM CLI Command:
+```bash
+# Configure the LLM command (persisted in ~/.experienced-llms/config.json):
+experienced-llms config --llm "agy query"          # For Google Antigravity / Gemini CLI
+experienced-llms config --llm "claude -p"           # For Anthropic Claude Code
+experienced-llms config --llm "ollama run mistral"  # For local Ollama
+
+# View current configuration:
+experienced-llms config
+```
+
+### Auto-Consolidation Error Protocol:
+If `experienced-llms log` or `experienced-llms consolidate` fails with an error (e.g. `Auto-consolidation failed: No LLM CLI command is configured` or external command execution error):
+1. **Do NOT ignore the failure.** Auto-consolidation intentionally fails hard to ensure rules are never silently left unconsolidated across days.
+2. Check which LLM CLI tools are available in the current environment (`agy`, `claude`, `ollama`, etc.).
+3. Configure the available LLM CLI command:
+   ```bash
+   experienced-llms config --llm "<available_cli_command>"
+   ```
+4. Re-run `experienced-llms consolidate` to complete pending consolidation and update `EXPERIENCE.md`.

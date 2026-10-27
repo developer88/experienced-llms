@@ -424,5 +424,5 @@ pub fn get_llm_client(
         }
     }
 
-    Err("No external LLM CLI command configured. Provide --llm '<command>' (e.g. --llm \"agy query\" or --llm \"ollama run mistral\") or configure default via 'experienced-llms setup --llm \"<command>\"'.".into())
+    Err("No external LLM CLI command configured. Provide --llm '<command>' (e.g. --llm \"agy query\" or --llm \"ollama run mistral\") or configure it via 'experienced-llms config --llm \"<command>\"'.".into())
 }

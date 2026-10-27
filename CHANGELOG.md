@@ -10,9 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Configuration Management Subcommand (`experienced-llms config`)**: View and modify engine configuration via `--llm "<cmd>"`, `--clear-llm`, `--max-words <n>`, `--skill-dir <path>`, and `--show`.
+- **Interactive LLM CLI Verification**: During `init` and `update`, prompts the user to verify or enter the LLM CLI command, with automatic detection for available CLIs in `PATH` (`agy`, `claude`, `ollama`). Defaults strictly to `null` with no hidden fallbacks.
+- **Fail-Hard Auto-Consolidation Protocol**: When consolidation is required, both auto-consolidation (during `log`) and manual `consolidate` fail hard with exit code 1 and controlled, actionable guidance if no LLM CLI is configured or if execution fails.
+- **Skill Error Recovery Protocol**: Added Section 4 to `SKILL.md` instructing AI agents how to recover from auto-consolidation failures by configuring the LLM CLI and completing pending consolidations.
 - **Daily Auto-Consolidation**: `experienced-llms log` automatically checks if the most recent consolidation occurred on a previous day (or never); if so, it immediately executes consolidation following the successful log entry.
 - **20-Minute Concurrency Lock**: Protected auto-consolidation with a resilient 20-minute file lock (`consolidation.lock`) preventing overlapping runs across concurrent processes, and safely allowing retries after 20 minutes if a consolidation failure occurs.
-- **Engine Status Enhancement**: `experienced-llms status` now displays the last consolidation date and active lock status.
+- **Engine Status Enhancement**: `experienced-llms status` now displays the last consolidation date, configured LLM command, and active lock status.
 
 ### Removed
 - **Scheduler & Cron Feature**: Completely removed `experienced-llms schedule` CLI command, Windows Task Scheduler integrations, and POSIX crontab setup in favor of self-contained auto-consolidation.

@@ -84,9 +84,36 @@ pub enum Commands {
         #[arg(long = "skill-dir")]
         skill_dir: Option<PathBuf>,
 
+        /// Configure LLM command for consolidation (e.g. 'agy query', 'claude -p')
+        #[arg(long = "llm")]
+        llm: Option<String>,
+
         /// Automatically approve prompts (e.g. file overwrite)
         #[arg(short = 'y', long = "yes")]
         yes: bool,
+    },
+
+    /// View or adjust configuration (LLM CLI command, max words, skill dir)
+    Config {
+        /// Set or update the LLM CLI command (e.g. 'agy query', 'claude -p', 'ollama run mistral')
+        #[arg(long = "llm")]
+        llm: Option<String>,
+
+        /// Clear the configured LLM CLI command (set to null)
+        #[arg(long = "clear-llm")]
+        clear_llm: bool,
+
+        /// Override maximum words ceiling for EXPERIENCE.md
+        #[arg(long = "max-words")]
+        max_words: Option<usize>,
+
+        /// Configure target directory for agent skill (SKILL.md)
+        #[arg(long = "skill-dir")]
+        skill_dir: Option<PathBuf>,
+
+        /// Display current configuration values
+        #[arg(long = "show")]
+        show: bool,
     },
 
     /// Self-update experienced-llms to the latest release
@@ -151,7 +178,7 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init { db_path, skill_dir, yes } => {
+        Commands::Init { db_path, skill_dir, llm, yes } => {
             println!("Initializing Experienced LLMs...");
             config::ensure_directories()?;
             config::ensure_template_with_prompt(&config::get_experienced_home(), yes)?;
@@ -159,10 +186,60 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                 let _ = config::save_configured_skill_dir(sd);
             }
             integrations::ensure_skill_with_prompt(skill_dir.as_deref(), yes)?;
+            config::ensure_llm_cmd_with_prompt(yes, llm.as_deref())?;
             db::init_db(db_path.as_deref())?;
             let (count, _) = renderer::rebuild_master_experience(db_path.as_deref(), None)?;
             println!("Initialized Experienced LLMs at: {}", config::get_experienced_home().display());
             println!("Rendered active experience with {} facts.", count);
+        }
+
+        Commands::Config { llm, clear_llm, max_words, skill_dir, show } => {
+            let mut cfg = config::load_config();
+            let mut mutated = false;
+
+            if clear_llm {
+                cfg.external_llm_cmd = None;
+                mutated = true;
+                println!("[✓] Cleared LLM CLI command (set to null).");
+            } else if let Some(cmd) = llm {
+                let trimmed = cmd.trim();
+                if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") {
+                    cfg.external_llm_cmd = None;
+                    println!("[✓] Cleared LLM CLI command (set to null).");
+                } else {
+                    cfg.external_llm_cmd = Some(trimmed.to_string());
+                    println!("[✓] Configured LLM CLI command: \"{}\"", trimmed);
+                }
+                mutated = true;
+            }
+
+            if let Some(mw) = max_words {
+                cfg.max_experience_words = mw;
+                mutated = true;
+                println!("[✓] Updated max experience words: {}", mw);
+            }
+
+            if let Some(sd) = skill_dir {
+                cfg.skill_dir = Some(sd.to_string_lossy().to_string());
+                mutated = true;
+                println!("[✓] Updated skill directory: {}", sd.display());
+            }
+
+            if mutated {
+                config::save_config(&cfg)?;
+            } else if show || true {
+                let cfg_file = config::get_config_file();
+                println!("Experienced LLMs Configuration ({}):", cfg_file.display());
+                match &cfg.external_llm_cmd {
+                    Some(cmd) => println!("  LLM CLI Command:      {}", cmd),
+                    None => println!("  LLM CLI Command:      (None / null) -> consolidation will fail hard until configured"),
+                }
+                println!("  Max Experience Words: {}", cfg.max_experience_words);
+                let skill_dir_str = config::get_configured_skill_dir()
+                    .map(|d| d.display().to_string())
+                    .unwrap_or_else(|| "(Default autodetection)".to_string());
+                println!("  Skill Directory:      {}", skill_dir_str);
+            }
         }
 
         Commands::Update { check, yes, tag } => {
@@ -199,7 +276,11 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
             println!("Logged [{}] ({}): {}", fact.category.as_str().to_uppercase(), fact.scope, fact.rule_statement);
 
             // Auto-consolidation: check if previous consolidation was on a previous day
-            let _ = autoconsolidate::check_and_run_autoconsolidation(None, None);
+            // Fails hard if auto-consolidation is needed and cannot complete
+            if let Err(err) = autoconsolidate::check_and_run_autoconsolidation(None, None) {
+                eprintln!("[-] {}", err);
+                std::process::exit(1);
+            }
         }
 
         Commands::Render { max_words } => {
@@ -222,6 +303,12 @@ pub fn run_cli() -> Result<(), Box<dyn std::error::Error>> {
                 "Master Experience: {}",
                 if master_file.exists() { "Exists" } else { "Not yet created" }
             );
+
+            let cfg = config::load_config();
+            match &cfg.external_llm_cmd {
+                Some(cmd) => println!("LLM CLI Command: {}", cmd),
+                None => println!("LLM CLI Command: (None / null) -> consolidation will fail hard until configured"),
+            }
 
             if let Some(lock_meta) = autoconsolidate::get_lock_status(&home) {
                 let remaining = lock_meta.expires_at_unix - chrono::Utc::now().timestamp();

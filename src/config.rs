@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 pub const DEFAULT_MAX_EXPERIENCE_WORDS: usize = 1200;
@@ -245,7 +246,131 @@ pub fn save_config(config: &Config) -> std::io::Result<()> {
     ensure_directories()?;
     let content = serde_json::to_string_pretty(config)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    fs::write(get_config_file(), content)
+    fs::write(get_config_file(), content)?;
+    // Clear any stale failure lock when configuration is updated
+    let lock_path = get_experienced_home().join("consolidation.lock");
+    let _ = fs::remove_file(lock_path);
+    Ok(())
+}
+
+pub fn command_exists(cmd: &str) -> bool {
+    #[cfg(windows)]
+    let check = std::process::Command::new("where.exe").arg(cmd).output();
+    #[cfg(not(windows))]
+    let check = std::process::Command::new("which").arg(cmd).output();
+    check.map(|o| o.status.success()).unwrap_or(false)
+}
+
+pub fn detect_available_llm_cli() -> Option<(&'static str, &'static str)> {
+    if command_exists("agy") {
+        Some(("agy", "agy query"))
+    } else if command_exists("claude") {
+        Some(("claude", "claude -p"))
+    } else if command_exists("ollama") {
+        Some(("ollama", "ollama run mistral"))
+    } else {
+        None
+    }
+}
+
+pub fn ensure_llm_cmd_with_prompt(auto_yes: bool, cli_llm: Option<&str>) -> std::io::Result<Option<String>> {
+    let mut cfg = load_config();
+
+    if let Some(cmd) = cli_llm {
+        let trimmed = cmd.trim();
+        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") {
+            cfg.external_llm_cmd = None;
+            save_config(&cfg)?;
+            println!("[✓] Cleared LLM CLI command (set to null).");
+            return Ok(None);
+        } else {
+            cfg.external_llm_cmd = Some(trimmed.to_string());
+            save_config(&cfg)?;
+            println!("[✓] Configured LLM CLI command: '{}'", trimmed);
+            return Ok(Some(trimmed.to_string()));
+        }
+    }
+
+    if auto_yes {
+        return Ok(cfg.external_llm_cmd);
+    }
+
+    if let Some(ref current) = cfg.external_llm_cmd {
+        println!("[?] Current LLM CLI command is: '{}'.", current);
+        print!("    Keep this command? [Y/n] (or enter replacement command): ");
+        std::io::stdout().flush()?;
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line)?;
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("y") || trimmed.eq_ignore_ascii_case("yes") {
+            println!("[✓] Kept current LLM CLI command: '{}'", current);
+            Ok(Some(current.clone()))
+        } else if trimmed.eq_ignore_ascii_case("n") || trimmed.eq_ignore_ascii_case("no") {
+            print!("    Enter new LLM CLI command (or press Enter for none): ");
+            std::io::stdout().flush()?;
+            let mut new_line = String::new();
+            std::io::stdin().read_line(&mut new_line)?;
+            let new_trimmed = new_line.trim();
+            if new_trimmed.is_empty() || new_trimmed.eq_ignore_ascii_case("none") {
+                cfg.external_llm_cmd = None;
+                save_config(&cfg)?;
+                println!("[*] Cleared LLM CLI command (set to null).");
+                Ok(None)
+            } else {
+                cfg.external_llm_cmd = Some(new_trimmed.to_string());
+                save_config(&cfg)?;
+                println!("[✓] Configured LLM CLI command: '{}'", new_trimmed);
+                Ok(Some(new_trimmed.to_string()))
+            }
+        } else {
+            cfg.external_llm_cmd = Some(trimmed.to_string());
+            save_config(&cfg)?;
+            println!("[✓] Configured LLM CLI command: '{}'", trimmed);
+            Ok(Some(trimmed.to_string()))
+        }
+    } else {
+        if let Some((name, suggested)) = detect_available_llm_cli() {
+            println!("[+] Detected '{}' in PATH.", name);
+            print!("    Use '{}' for memory consolidation? [Y/n] (or enter custom command): ", suggested);
+            std::io::stdout().flush()?;
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line)?;
+            let trimmed = line.trim();
+
+            if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("y") || trimmed.eq_ignore_ascii_case("yes") {
+                cfg.external_llm_cmd = Some(suggested.to_string());
+                save_config(&cfg)?;
+                println!("[✓] Configured LLM CLI command: '{}'", suggested);
+                Ok(Some(suggested.to_string()))
+            } else if trimmed.eq_ignore_ascii_case("n") || trimmed.eq_ignore_ascii_case("no") {
+                println!("[*] Skipped LLM CLI command (set to null). Note: consolidation will fail until configured.");
+                Ok(None)
+            } else {
+                cfg.external_llm_cmd = Some(trimmed.to_string());
+                save_config(&cfg)?;
+                println!("[✓] Configured LLM CLI command: '{}'", trimmed);
+                Ok(Some(trimmed.to_string()))
+            }
+        } else {
+            println!("[?] No LLM CLI command configured for memory consolidation.");
+            print!("    Enter command (e.g. 'agy query', 'claude -p', 'ollama run mistral') or Enter for none: ");
+            std::io::stdout().flush()?;
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line)?;
+            let trimmed = line.trim();
+
+            if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("none") {
+                println!("[*] No LLM command set (null). Note: consolidation will fail until configured.");
+                Ok(None)
+            } else {
+                cfg.external_llm_cmd = Some(trimmed.to_string());
+                save_config(&cfg)?;
+                println!("[✓] Configured LLM CLI command: '{}'", trimmed);
+                Ok(Some(trimmed.to_string()))
+            }
+        }
+    }
 }
 
 pub fn ensure_template_with_prompt(home: &Path, auto_yes: bool) -> std::io::Result<Option<PathBuf>> {

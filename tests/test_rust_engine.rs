@@ -411,6 +411,15 @@ fn test_cli_subcommands_sandbox() {
         .expect("Failed to run init");
     assert!(init_out.status.success());
 
+    // Mark today consolidated so daytime log doesn't trigger auto-consolidation without mock LLM
+    let db_path = home_dir.join("memory.db");
+    let conn = db::get_connection(Some(&db_path)).unwrap();
+    let today_rfc = chrono::Local::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO consolidations (consolidated_at, engine_type, facts_processed, facts_superseded, summary_of_changes) VALUES (?, 'test', 0, 0, 'Today test')",
+        rusqlite::params![today_rfc],
+    ).unwrap();
+
     // 2. Log
     let log_out = Command::new(exe)
         .env("EXPERIENCED_LLMS_HOME", &home_dir)
@@ -690,6 +699,15 @@ fn test_cli_consolidate_execution_and_template_lifecycle() {
     assert!(init_out.status.success());
     let template_file = home_path.join("template.md");
     assert!(template_file.exists(), "init must generate default template.md");
+
+    // Mark today consolidated so daytime logs accumulate as pending without auto-consolidating immediately
+    let db_path = home_path.join("memory.db");
+    let conn = db::get_connection(Some(&db_path)).unwrap();
+    let today_rfc = chrono::Local::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO consolidations (consolidated_at, engine_type, facts_processed, facts_superseded, summary_of_changes) VALUES (?, 'test', 0, 0, 'Today test')",
+        rusqlite::params![today_rfc],
+    ).unwrap();
 
     // 2. Log facts
     let log1 = Command::new(exe)
@@ -1001,6 +1019,128 @@ fn test_autoconsolidate_execution_on_log() {
     assert!(log3_out.status.success());
     let log3_str = String::from_utf8_lossy(&log3_out.stdout);
     assert!(log3_str.contains("Auto-consolidation complete"), "Must trigger auto-consolidation when last run was on previous day");
+}
+
+#[test]
+fn test_log_fails_hard_when_no_llm_cmd_configured() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home = dir.path().to_path_buf();
+    let exe = env!("CARGO_BIN_EXE_experienced-llms");
+
+    // 1. Initialize environment with --yes (leaves LLM command as null)
+    let init_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["init", "--yes"])
+        .output()
+        .expect("Failed to run init");
+    assert!(init_out.status.success());
+
+    // 2. Call log: since it's the first log and no LLM is configured, it must fail hard
+    let log_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["log", "Failing rule due to missing LLM", "--category", "user_preference"])
+        .output()
+        .expect("Failed to run log");
+    assert!(!log_out.status.success(), "log must fail hard when auto-consolidation has no LLM CLI");
+    let err_str = String::from_utf8_lossy(&log_out.stderr);
+    assert!(err_str.contains("Auto-consolidation requires an LLM CLI"));
+    assert!(err_str.contains("experienced-llms config --llm"));
+
+    // 3. Configure LLM command via config CLI command
+    let mock_json = serde_json::json!({
+        "updated_experience_markdown": "# Master AI Experience\n\n## 1. User Directives & Preferences\n- Fixed rule",
+        "processed_pending_ids": [1],
+        "superseded_fact_ids": [],
+        "summary_of_changes": "Consolidation succeeded after config"
+    });
+    let mock_script = home.join("mock_fixed_llm.sh");
+    fs::write(
+        &mock_script,
+        format!("#!/bin/sh\ncat << 'EOF'\n{}\nEOF\n", mock_json),
+    ).expect("Failed to write mock script");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&mock_script).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&mock_script, perms).unwrap();
+    }
+    let mock_cmd = format!("sh {}", mock_script.display());
+
+    let cfg_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["config", "--llm", &mock_cmd])
+        .output()
+        .expect("Failed to run config");
+    assert!(cfg_out.status.success());
+    let cfg_str = String::from_utf8_lossy(&cfg_out.stdout);
+    assert!(cfg_str.contains("Configured LLM CLI command"));
+
+    // 4. Now manual consolidate succeeds
+    let cons_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .arg("consolidate")
+        .output()
+        .expect("Failed to run consolidate");
+    assert!(cons_out.status.success());
+}
+
+#[test]
+fn test_config_command_adjust_llm_and_show() {
+    let dir = tempdir().expect("Failed to create tempdir");
+    let home = dir.path().to_path_buf();
+    let exe = env!("CARGO_BIN_EXE_experienced-llms");
+
+    // 1. Initial config shows null
+    let show_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["config", "--show"])
+        .output()
+        .expect("Failed to run config show");
+    assert!(show_out.status.success());
+    let show_str = String::from_utf8_lossy(&show_out.stdout);
+    assert!(show_str.contains("LLM CLI Command:"));
+    assert!(show_str.contains("None / null"));
+
+    // 2. Set LLM command
+    let set_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["config", "--llm", "agy query"])
+        .output()
+        .expect("Failed to set LLM");
+    assert!(set_out.status.success());
+    let set_str = String::from_utf8_lossy(&set_out.stdout);
+    assert!(set_str.contains("Configured LLM CLI command: \"agy query\""));
+
+    // 3. Inspect updated config
+    let show2_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .arg("config")
+        .output()
+        .expect("Failed to run config");
+    assert!(show2_out.status.success());
+    let show2_str = String::from_utf8_lossy(&show2_out.stdout);
+    assert!(show2_str.contains("LLM CLI Command:      agy query"));
+
+    // 4. Clear LLM command
+    let clear_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["config", "--clear-llm"])
+        .output()
+        .expect("Failed to clear LLM");
+    assert!(clear_out.status.success());
+    let clear_str = String::from_utf8_lossy(&clear_out.stdout);
+    assert!(clear_str.contains("Cleared LLM CLI command"));
+
+    // 5. Init with --llm flag configures it directly
+    let init2_out = Command::new(exe)
+        .env("EXPERIENCED_LLMS_HOME", &home)
+        .args(["init", "--llm", "claude -p", "--yes"])
+        .output()
+        .expect("Failed to run init with --llm");
+    assert!(init2_out.status.success());
+    let init2_str = String::from_utf8_lossy(&init2_out.stdout);
+    assert!(init2_str.contains("Configured LLM CLI command: 'claude -p'"));
 }
 
 #[test]
