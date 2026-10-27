@@ -1281,7 +1281,7 @@ fn test_skill_packaging_and_compliance() {
     // 3. Version
     let ver_re = regex::Regex::new(r"(?m)^version:\s*(.+)$").unwrap();
     let ver_caps = ver_re.captures(frontmatter).expect("Missing 'version' in YAML frontmatter");
-    assert_eq!(ver_caps[1].trim(), "1.0.0rc5");
+    assert_eq!(ver_caps[1].trim(), "1.0.0rc6");
 
     // 4. Author
     let author_re = regex::Regex::new(r"(?m)^author:\s*(.+)$").unwrap();

@@ -5,7 +5,7 @@
 # Experienced LLMs
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Version: 1.0.0rc5](https://img.shields.io/badge/Version-1.0.0rc5-green.svg)](https://github.com/developer88/experienced-llms/releases)
+[![Version: 1.0.0rc6](https://img.shields.io/badge/Version-1.0.0rc6-green.svg)](https://github.com/developer88/experienced-llms/releases)
 [![AgenticSkills: S-Rank](https://img.shields.io/badge/AgenticSkills-Compliant-orange.svg)](https://agenticskills.io/methodology)
 
 Let's give AI a tool to learn from our feedback day to day. It does not replace `AGENTS.md`, nor Skills or MCPs, but significantly improves your local agents and makes them tailored to your personal workflows.
@@ -135,7 +135,7 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 | `experienced-llms config` | `--llm "<cmd>"`, `--clear-llm`, `--max-words`, `--skill-dir`, `--show` | View or adjust configuration (LLM CLI command, word limits, skill path) |
 | `experienced-llms update` | `--check`, `--yes`, `--tag` | Perform automated in-place self-update to latest release |
 | `experienced-llms init` | `--llm "<cmd>"`, `--skill-dir <PATH>`, `--db-path <PATH>`, `--yes` | Initialize SQLite schema, directories, template, LLM command, and configure agent skill |
-| `experienced-llms --version` | `-v` | Display version information (`1.0.0rc5`) |
+| `experienced-llms --version` | `-v` | Display version information (`1.0.0rc6`) |
 
 ---
 
@@ -143,7 +143,7 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 
 Experienced LLMs is packaged in full accordance with the [agenticskills.io/methodology](https://agenticskills.io/methodology) standard:
 - **Canonical Skill Location**: `skills/experienced-llm/SKILL.md`
-- **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc5`), author, repository, license, and keywords.
+- **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0rc6`), author, repository, license, and keywords.
 - **Safety & Containment**: Strict local containment in user home, zero capability escalation, zero private data leakage.
 
 ---

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.0.0rc6] - 2026-10-27
 
 ### Added
 - **Configuration Management Subcommand (`experienced-llms config`)**: View and modify engine configuration via `--llm "<cmd>"`, `--clear-llm`, `--max-words <n>`, `--skill-dir <path>`, and `--show`.
