@@ -206,7 +206,7 @@ pub fn check_and_run_autoconsolidation(
         Ok(c) => c,
         Err(_) => {
             lock.retain_on_failure();
-            return Err("No LLM CLI command is configured. Auto-consolidation requires an LLM CLI to consolidate operational memory into EXPERIENCE.md.\n    To configure an LLM command, run:\n      experienced-llms config --llm \"<cmd>\"\n    Examples:\n      experienced-llms config --llm \"agy query\"\n      experienced-llms config --llm \"claude -p\"\n      experienced-llms config --llm \"ollama run mistral\"\n    Or set the EXPERIENCED_LLMS_EXTERNAL_CMD environment variable.".into());
+            return Err("No LLM CLI command is configured. Auto-consolidation requires an LLM CLI to consolidate operational memory into EXPERIENCE.md.\n    To configure an LLM command, run:\n      experienced-llms config --llm \"<cmd>\"\n    Examples:\n      experienced-llms config --llm \"agy\"\n      experienced-llms config --llm \"claude -p\"\n      experienced-llms config --llm \"ollama run mistral\"\n    Or set the EXPERIENCED_LLMS_EXTERNAL_CMD environment variable.".into());
         }
     };
 

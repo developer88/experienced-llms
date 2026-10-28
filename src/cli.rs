@@ -84,7 +84,7 @@ pub enum Commands {
         #[arg(long = "skill-dir")]
         skill_dir: Option<PathBuf>,
 
-        /// Configure LLM command for consolidation (e.g. 'agy query', 'claude -p')
+        /// Configure LLM command for consolidation (e.g. 'agy', 'claude -p')
         #[arg(long = "llm")]
         llm: Option<String>,
 
@@ -95,7 +95,7 @@ pub enum Commands {
 
     /// View or adjust configuration (LLM CLI command, max words, skill dir)
     Config {
-        /// Set or update the LLM CLI command (e.g. 'agy query', 'claude -p', 'ollama run mistral')
+        /// Set or update the LLM CLI command (e.g. 'agy', 'claude -p', 'ollama run mistral')
         #[arg(long = "llm")]
         llm: Option<String>,
 
@@ -137,7 +137,7 @@ pub enum Commands {
         #[arg(short = 'd', long = "date")]
         date: Option<String>,
 
-        /// External CLI LLM command (e.g. 'agy query', 'claude', 'ollama run mistral')
+        /// External CLI LLM command (e.g. 'agy', 'claude -p', 'ollama run mistral')
         #[arg(long = "llm")]
         llm: Option<String>,
 

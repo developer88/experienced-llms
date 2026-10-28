@@ -1105,12 +1105,12 @@ fn test_config_command_adjust_llm_and_show() {
     // 2. Set LLM command
     let set_out = Command::new(exe)
         .env("EXPERIENCED_LLMS_HOME", &home)
-        .args(["config", "--llm", "agy query"])
+        .args(["config", "--llm", "agy"])
         .output()
         .expect("Failed to set LLM");
     assert!(set_out.status.success());
     let set_str = String::from_utf8_lossy(&set_out.stdout);
-    assert!(set_str.contains("Configured LLM CLI command: \"agy query\""));
+    assert!(set_str.contains("Configured LLM CLI command: \"agy\""));
 
     // 3. Inspect updated config
     let show2_out = Command::new(exe)
@@ -1120,7 +1120,7 @@ fn test_config_command_adjust_llm_and_show() {
         .expect("Failed to run config");
     assert!(show2_out.status.success());
     let show2_str = String::from_utf8_lossy(&show2_out.stdout);
-    assert!(show2_str.contains("LLM CLI Command:      agy query"));
+    assert!(show2_str.contains("LLM CLI Command:      agy"));
 
     // 4. Clear LLM command
     let clear_out = Command::new(exe)

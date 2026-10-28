@@ -263,7 +263,7 @@ pub fn command_exists(cmd: &str) -> bool {
 
 pub fn detect_available_llm_cli() -> Option<(&'static str, &'static str)> {
     if command_exists("agy") {
-        Some(("agy", "agy query"))
+        Some(("agy", "agy"))
     } else if command_exists("claude") {
         Some(("claude", "claude -p"))
     } else if command_exists("ollama") {
@@ -354,7 +354,7 @@ pub fn ensure_llm_cmd_with_prompt(auto_yes: bool, cli_llm: Option<&str>) -> std:
             }
         } else {
             println!("[?] No LLM CLI command configured for memory consolidation.");
-            print!("    Enter command (e.g. 'agy query', 'claude -p', 'ollama run mistral') or Enter for none: ");
+            print!("    Enter command (e.g. 'agy', 'claude -p', 'ollama run mistral') or Enter for none: ");
             std::io::stdout().flush()?;
             let mut line = String::new();
             std::io::stdin().read_line(&mut line)?;

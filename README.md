@@ -94,7 +94,7 @@ cat ~/.experienced-llms/EXPERIENCE.md
 ### 3. Run Consolidation
 ```bash
 # Using external CLI tool (e.g. agy, claude, ollama)
-experienced-llms consolidate --llm "agy query"
+experienced-llms consolidate --llm "agy"
 ```
 
 ### 4. Initialize & Configure Agent Skill Directory
