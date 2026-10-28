@@ -17,22 +17,26 @@ function Run-EncodedScript {
         [string]$StdOutPath,
         [string]$StdErrPath
     )
-    $bytes = [System.Text.Encoding]::Unicode.GetBytes($ScriptText)
-    $encoded = [Convert]::ToBase64String($bytes)
+    $tempScript = Join-Path ([System.IO.Path]::GetTempPath()) ("run_test_" + [Guid]::NewGuid().ToString("N") + ".ps1")
+    [System.IO.File]::WriteAllText($tempScript, $ScriptText, [System.Text.Encoding]::UTF8)
     
-    $argsList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand", $encoded)
-    $procInfo = @{
-        FilePath = "powershell.exe"
-        ArgumentList = $argsList
-        Wait = $true
-        PassThru = $true
-        NoNewWindow = $true
-    }
-    if ($StdOutPath) { $procInfo["RedirectStandardOutput"] = $StdOutPath }
-    if ($StdErrPath) { $procInfo["RedirectStandardError"] = $StdErrPath }
+    try {
+        $argsList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $tempScript)
+        $procInfo = @{
+            FilePath = "powershell.exe"
+            ArgumentList = $argsList
+            Wait = $true
+            PassThru = $true
+            NoNewWindow = $true
+        }
+        if ($StdOutPath) { $procInfo["RedirectStandardOutput"] = $StdOutPath }
+        if ($StdErrPath) { $procInfo["RedirectStandardError"] = $StdErrPath }
 
-    $p = Start-Process @procInfo
-    return $p.ExitCode
+        $p = Start-Process @procInfo
+        return $p.ExitCode
+    } finally {
+        if (Test-Path $tempScript) { Remove-Item $tempScript -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 # Preserve original User PATH to guarantee zero host pollution
