@@ -206,7 +206,14 @@ pub fn ensure_skill_with_prompt(
     } else if let Some(configured) = crate::config::get_configured_skill_dir() {
         Some(configured)
     } else if auto_yes || !io::stdin().is_terminal() {
-        Some(get_default_skill_dir())
+        let detected = detect_agent_skill_dirs();
+        if !detected.is_empty() {
+            let primary = detected[0].path.clone();
+            let _ = crate::config::save_configured_skill_dir(&primary);
+            Some(primary)
+        } else {
+            Some(get_default_skill_dir())
+        }
     } else {
         let chosen = prompt_user_for_skill_dir()?;
         if let Some(ref d) = chosen {
