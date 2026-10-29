@@ -1,6 +1,6 @@
 ---
 name: experienced-llm
-description: Autonomous operational experience interface to load past heuristics, log runtime lessons, and execute daily auto-consolidation.
+description: Autonomous memory ledger. Load at session start to read ~/.experienced-llms/EXPERIENCE.md, and load when learning user directives, gotchas, or runtime fixes to record them via experienced-llms log.
 version: 1.0.0rc6
 author: developer88
 repository: https://github.com/developer88/experienced-llms
