@@ -600,7 +600,7 @@ if ($InitHelp -match "--yes") {
 Write-StepSuccess "SQLite memory engine initialized" $ExperiencedHome
 
 # 5. Extract installed version
-$installedVersion = "1.0.0rc6"
+$installedVersion = "1.0.0"
 try {
   $verStr = & "$DestExe" --version 2>&1
   if ($verStr -match "experienced-llms ([\w\.\-]+)") {

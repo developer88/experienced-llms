@@ -515,7 +515,7 @@ fi
 write_step_success "SQLite memory engine initialized" "${EXPERIENCED_HOME}"
 
 # 6. Extract installed version
-INSTALLED_VER="1.0.0rc6"
+INSTALLED_VER="1.0.0"
 VER_STR="$("${TARGET_BIN}" --version 2>&1 || true)"
 if [[ "${VER_STR}" =~ experienced-llms[[:space:]]+([0-9a-zA-Z\.\-]+) ]]; then
   INSTALLED_VER="${BASH_REMATCH[1]}"

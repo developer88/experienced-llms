@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.0] - 2026-11-05
+
+### Added
+- **Multi-Agent Environment Autodetection**: Non-interactive headless initialization (`experienced-llms init --yes`) dynamically autodetects installed coding agent environments across global, user, and roaming directories (Antigravity, Claude Code, Cursor, Copilot, Cline, Roo Code, Goose, Windsurf, OpenCode) and automatically binds the operational skill.
+- **AgenticSkills Ecosystem Discovery**: Validated full ecosystem compatibility with `skills-cli` (`npx skills add developer88/experienced-llms --list`), discovering the canonical `experienced-llm` skill across 79+ AI agent configurations.
+- **Active Trigger Skill Instructions**: Enhanced `skills/experienced-llm/SKILL.md` frontmatter description to actively trigger LLMs on session bootstrap, learning user directives, architectural decisions, and runtime bug fixes.
+- **Interactive Terminal Visuals & Animations**: Terminal installers (`install.sh` and `install.ps1`) feature animated ASCII/Unicode branding, dynamic comet progress bars, and comprehensive host environment verification.
+
+### Fixed
+- **Zero-Argument `agy` CLI Stdin Pipe**: Updated default LLM configuration and autodetection for `agy` to use bare `agy`, aligning with Antigravity's standard input pipe mechanism without deprecated or unsupported flags.
+
+---
+
 ## [1.0.0rc6] - 2026-10-27
 
 ### Added
