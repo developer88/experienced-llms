@@ -39,16 +39,28 @@ For detailed architecture diagrams and design specifications, see [System Archit
 
 ---
 
-## ⚡ Quick Start: 1-Line Terminal Installation
+## ⚡ Quick Start
 
-No compiler, Python, or multi-step dependency setup required. Copy and paste a single command into your terminal:
+### 1. Install Skill via Skills CLI (Any AI Agent)
 
-### POSIX (Linux, macOS, Ubuntu, Arch, Debian, WSL)
+Install the operational memory skill globally across your coding agents (Antigravity, Claude Code, Cursor, Copilot, Cline, Roo Code, etc.) with a single command:
+
+```bash
+npx skills add developer88/experienced-llms -g -y
+```
+
+*(Or inspect available skills without installing: `npx skills add developer88/experienced-llms --list`)*
+
+### 2. 1-Line Native Engine Installation
+
+The standalone binary powers local SQLite memory storage, automatic daily consolidation, and CLI logging with zero token waste:
+
+#### POSIX (Linux, macOS, Ubuntu, Arch, Debian, WSL)
 ```bash
 curl -fsSL https://github.com/developer88/experienced-llms/releases/latest/download/install.sh | bash
 ```
 
-### Windows 11 (PowerShell)
+#### Windows 11 (PowerShell)
 ```powershell
 irm https://github.com/developer88/experienced-llms/releases/latest/download/install.ps1 | iex
 ```
@@ -139,9 +151,10 @@ For detailed architecture, JSON schemas, and template customization, see [Consol
 
 ---
 
-## 🧩 AgenticSkills Standards Compliance
+## 🧩 AgenticSkills & Open Skills Ecosystem
 
-Experienced LLMs is packaged in full accordance with the [agenticskills.io/methodology](https://agenticskills.io/methodology) standard:
+Experienced LLMs is packaged in full accordance with the [agenticskills.io/methodology](https://agenticskills.io/methodology) standard and discoverable across 79+ AI agents via the open skills ecosystem:
+- **Skills CLI Installation**: `npx skills add developer88/experienced-llms -g -y`
 - **Canonical Skill Location**: `skills/experienced-llm/SKILL.md`
 - **Spec-Compliant Frontmatter**: Name, description (< 200 chars), version (`1.0.0`), author, repository, license, and keywords.
 - **Safety & Containment**: Strict local containment in user home, zero capability escalation, zero private data leakage.
